@@ -23,6 +23,8 @@ type Client struct {
 	apiKey     string
 	httpClient *http.Client
 	userAgent  string
+
+	Clients *ClientEntityService
 }
 
 // Option is a functional option for configuring the Client.
@@ -66,6 +68,8 @@ func NewClient(apiKey string, opts ...Option) *Client {
 	for _, opt := range opts {
 		opt(c)
 	}
+
+	c.Clients = &ClientEntityService{client: c}
 
 	return c
 }
