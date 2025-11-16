@@ -3,6 +3,7 @@ package infakt
 import (
 	"context"
 	"fmt"
+	"io"
 	"net/http"
 )
 
@@ -181,4 +182,98 @@ func (s *InvoiceService) Delete(ctx context.Context, id int64) error {
 
 	_, err = s.client.do(req, nil)
 	return err
+}
+
+// MarkAsPaid marks an invoice as paid.
+func (s *InvoiceService) MarkAsPaid(ctx context.Context, id int64, paidDate string) error {
+	path := fmt.Sprintf("/%s/invoices/%d/paid.json", apiVersion, id)
+
+	body := map[string]string{}
+	if paidDate != "" {
+		body["paid_date"] = paidDate
+	}
+
+	req, err := s.client.newRequest(ctx, http.MethodPost, path, body)
+	if err != nil {
+		return err
+	}
+
+	_, err = s.client.do(req, nil)
+	return err
+}
+
+// SendByEmail sends an invoice by email.
+func (s *InvoiceService) SendByEmail(ctx context.Context, id int64, emailTo string) error {
+	path := fmt.Sprintf("/%s/invoices/%d/deliver_via_email.json", apiVersion, id)
+
+	body := map[string]interface{}{
+		"print_type": "original",
+	}
+	if emailTo != "" {
+		body["email_to"] = emailTo
+	}
+
+	req, err := s.client.newRequest(ctx, http.MethodPost, path, body)
+	if err != nil {
+		return err
+	}
+
+	_, err = s.client.do(req, nil)
+	return err
+}
+
+// GetPDF returns the PDF content of an invoice.
+func (s *InvoiceService) GetPDF(ctx context.Context, id int64) ([]byte, error) {
+	path := fmt.Sprintf("/%s/invoices/%d.pdf", apiVersion, id)
+
+	req, err := s.client.newRequest(ctx, http.MethodGet, path, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	resp, err := s.client.httpClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("infakt: request failed: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if err := checkResponse(resp); err != nil {
+		return nil, err
+	}
+
+	data, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("infakt: failed to read PDF response: %w", err)
+	}
+
+	return data, nil
+}
+
+// NextNumber returns the next available invoice number for the given kind.
+type NextNumberResponse struct {
+	NextNumber string `json:"next_number"`
+}
+
+// GetNextNumber returns the next available invoice number.
+func (s *InvoiceService) GetNextNumber(ctx context.Context, kind string) (string, error) {
+	path := fmt.Sprintf("/%s/invoices/next_number.json", apiVersion)
+
+	req, err := s.client.newRequest(ctx, http.MethodGet, path, nil)
+	if err != nil {
+		return "", err
+	}
+
+	if kind != "" {
+		q := req.URL.Query()
+		q.Set("kind", kind)
+		req.URL.RawQuery = q.Encode()
+	}
+
+	var result NextNumberResponse
+	_, err = s.client.do(req, &result)
+	if err != nil {
+		return "", err
+	}
+
+	return result.NextNumber, nil
 }

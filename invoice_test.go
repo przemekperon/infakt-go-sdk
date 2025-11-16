@@ -161,3 +161,93 @@ func TestInvoiceService_Delete(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 }
+
+func TestInvoiceService_MarkAsPaid(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			t.Errorf("expected POST, got %s", r.Method)
+		}
+		if r.URL.Path != "/v3/invoices/99/paid.json" {
+			t.Errorf("expected path /v3/invoices/99/paid.json, got %s", r.URL.Path)
+		}
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer ts.Close()
+
+	c := NewClient("key", WithBaseURL(ts.URL))
+	err := c.Invoices.MarkAsPaid(context.Background(), 99, "2025-11-16")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestInvoiceService_SendByEmail(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			t.Errorf("expected POST, got %s", r.Method)
+		}
+		if r.URL.Path != "/v3/invoices/99/deliver_via_email.json" {
+			t.Errorf("expected path /v3/invoices/99/deliver_via_email.json, got %s", r.URL.Path)
+		}
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer ts.Close()
+
+	c := NewClient("key", WithBaseURL(ts.URL))
+	err := c.Invoices.SendByEmail(context.Background(), 99, "test@example.com")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestInvoiceService_GetPDF(t *testing.T) {
+	pdfContent := []byte("%PDF-1.4 fake content")
+
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/v3/invoices/99.pdf" {
+			t.Errorf("expected path /v3/invoices/99.pdf, got %s", r.URL.Path)
+		}
+		w.Header().Set("Content-Type", "application/pdf")
+		w.Write(pdfContent)
+	}))
+	defer ts.Close()
+
+	c := NewClient("key", WithBaseURL(ts.URL))
+	data, err := c.Invoices.GetPDF(context.Background(), 99)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if string(data) != string(pdfContent) {
+		t.Errorf("expected PDF content %q, got %q", pdfContent, data)
+	}
+}
+
+func TestInvoiceService_GetNextNumber(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/v3/invoices/next_number.json" {
+			t.Errorf("expected path /v3/invoices/next_number.json, got %s", r.URL.Path)
+		}
+
+		kind := r.URL.Query().Get("kind")
+		if kind != "vat" {
+			t.Errorf("expected kind %q, got %q", "vat", kind)
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(NextNumberResponse{
+			NextNumber: "FV/2025/11/002",
+		})
+	}))
+	defer ts.Close()
+
+	c := NewClient("key", WithBaseURL(ts.URL))
+	number, err := c.Invoices.GetNextNumber(context.Background(), "vat")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if number != "FV/2025/11/002" {
+		t.Errorf("expected number %q, got %q", "FV/2025/11/002", number)
+	}
+}
