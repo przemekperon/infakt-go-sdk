@@ -26,6 +26,7 @@ type Client struct {
 
 	Invoices *InvoiceService
 	Clients  *ClientEntityService
+	Products *ProductService
 }
 
 // Option is a functional option for configuring the Client.
@@ -72,6 +73,7 @@ func NewClient(apiKey string, opts ...Option) *Client {
 
 	c.Invoices = &InvoiceService{client: c}
 	c.Clients = &ClientEntityService{client: c}
+	c.Products = &ProductService{client: c}
 
 	return c
 }
