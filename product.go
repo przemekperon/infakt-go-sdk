@@ -18,6 +18,17 @@ type Product struct {
 	Quantity     float64 `json:"quantity,omitempty"`
 }
 
+// ProductRequest is used for creating and updating products.
+type ProductRequest struct {
+	Name         *string  `json:"name,omitempty"`
+	Description  *string  `json:"description,omitempty"`
+	Unit         *string  `json:"unit,omitempty"`
+	PKWiU        *string  `json:"pkwiu,omitempty"`
+	TaxSymbol    *string  `json:"tax_symbol,omitempty"`
+	UnitNetPrice *int     `json:"unit_net_price,omitempty"`
+	Quantity     *float64 `json:"quantity,omitempty"`
+}
+
 // ProductListOptions specifies the optional parameters to the
 // ProductService.List method.
 type ProductListOptions struct {

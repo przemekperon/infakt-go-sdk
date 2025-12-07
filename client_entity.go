@@ -28,6 +28,28 @@ type ClientEntity struct {
 	SameForwardAddress bool  `json:"same_forward_address,omitempty"`
 }
 
+// ClientEntityRequest is used for creating and updating client entities.
+// Pointer fields allow distinguishing between zero values and unset fields.
+type ClientEntityRequest struct {
+	CompanyName       *string `json:"company_name,omitempty"`
+	Street            *string `json:"street,omitempty"`
+	City              *string `json:"city,omitempty"`
+	Country           *string `json:"country,omitempty"`
+	PostalCode        *string `json:"postal_code,omitempty"`
+	NIP               *string `json:"nip,omitempty"`
+	PhoneNumber       *string `json:"phone_number,omitempty"`
+	Email             *string `json:"email,omitempty"`
+	Note              *string `json:"note,omitempty"`
+	InvoiceNote       *string `json:"invoice_note,omitempty"`
+	PaymentDays       *int    `json:"payment_days,omitempty"`
+	PersonName        *string `json:"person_name,omitempty"`
+	BankAccount       *string `json:"bank_account,omitempty"`
+	TaxPayer          *bool   `json:"tax_payer,omitempty"`
+	ReceivingMethod   *string `json:"receiving_method,omitempty"`
+	PaymentMethod     *string `json:"payment_method,omitempty"`
+	SameForwardAddress *bool  `json:"same_forward_address,omitempty"`
+}
+
 // ClientEntityListOptions specifies the optional parameters to the
 // ClientEntityService.List method.
 type ClientEntityListOptions struct {

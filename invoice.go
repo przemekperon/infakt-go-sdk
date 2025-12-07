@@ -68,6 +68,35 @@ type PaymentOnline struct {
 	Enabled bool `json:"enabled,omitempty"`
 }
 
+// InvoiceRequest is used for creating and updating invoices.
+type InvoiceRequest struct {
+	Currency           *string               `json:"currency,omitempty"`
+	Notes              *string               `json:"notes,omitempty"`
+	Kind               *string               `json:"kind,omitempty"`
+	PaymentMethod      *string               `json:"payment_method,omitempty"`
+	RecipientSignature *string               `json:"recipient_signature,omitempty"`
+	SellerSignature    *string               `json:"seller_signature,omitempty"`
+	InvoiceDate        *string               `json:"invoice_date,omitempty"`
+	SaleDate           *string               `json:"sale_date,omitempty"`
+	PaymentDate        *string               `json:"payment_date,omitempty"`
+	ClientID           *int64                `json:"client_id,omitempty"`
+	BankAccount        *string               `json:"bank_account,omitempty"`
+	SaleType           *string               `json:"sale_type,omitempty"`
+	InvoiceDateKind    *string               `json:"invoice_date_kind,omitempty"`
+	Services           []ServiceEntryRequest `json:"services,omitempty"`
+}
+
+// ServiceEntryRequest is used for creating and updating service line items.
+type ServiceEntryRequest struct {
+	Name         *string  `json:"name,omitempty"`
+	TaxSymbol    *string  `json:"tax_symbol,omitempty"`
+	Unit         *string  `json:"unit,omitempty"`
+	Quantity     *float64 `json:"quantity,omitempty"`
+	UnitNetPrice *int     `json:"unit_net_price,omitempty"`
+	Symbol       *string  `json:"symbol,omitempty"`
+	Discount     *float64 `json:"discount,omitempty"`
+}
+
 // InvoiceListOptions specifies the optional parameters to the
 // InvoiceService.List method.
 type InvoiceListOptions struct {
