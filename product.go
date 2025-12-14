@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"net/url"
 )
 
 // Product represents a product in the inFakt system.
@@ -33,6 +34,9 @@ type ProductRequest struct {
 // ProductService.List method.
 type ProductListOptions struct {
 	ListOptions
+
+	// Filter fields using inFakt query format (q[field_predicate]=value)
+	Name string // q[name_cont]
 }
 
 // ProductService handles communication with the product related
@@ -60,6 +64,7 @@ func (s *ProductService) List(ctx context.Context, opts *ProductListOptions) ([]
 		if err != nil {
 			return nil, nil, err
 		}
+		path = addProductFilters(path, opts)
 	}
 
 	req, err := s.client.newRequest(ctx, http.MethodGet, path, nil)
@@ -143,4 +148,18 @@ func (s *ProductService) Delete(ctx context.Context, id int64) error {
 
 	_, err = s.client.do(req, nil)
 	return err
+}
+
+func addProductFilters(path string, opts *ProductListOptions) string {
+	u, err := url.Parse(path)
+	if err != nil {
+		return path
+	}
+
+	q := u.Query()
+	if opts.Name != "" {
+		q.Set("q[name_cont]", opts.Name)
+	}
+	u.RawQuery = q.Encode()
+	return u.String()
 }

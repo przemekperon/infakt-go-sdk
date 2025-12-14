@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 )
 
 // Invoice represents an invoice in the inFakt system.
@@ -101,6 +102,12 @@ type ServiceEntryRequest struct {
 // InvoiceService.List method.
 type InvoiceListOptions struct {
 	ListOptions
+
+	// Filter fields using inFakt query format (q[field_predicate]=value)
+	DateFrom string // q[invoice_date_gteq]
+	DateTo   string // q[invoice_date_lteq]
+	ClientID int64  // q[client_id_eq]
+	Status   string // q[status_eq]
 }
 
 // InvoiceService handles communication with the invoice related
@@ -128,6 +135,7 @@ func (s *InvoiceService) List(ctx context.Context, opts *InvoiceListOptions) ([]
 		if err != nil {
 			return nil, nil, err
 		}
+		path = addInvoiceFilters(path, opts)
 	}
 
 	req, err := s.client.newRequest(ctx, http.MethodGet, path, nil)
@@ -305,4 +313,27 @@ func (s *InvoiceService) GetNextNumber(ctx context.Context, kind string) (string
 	}
 
 	return result.NextNumber, nil
+}
+
+func addInvoiceFilters(path string, opts *InvoiceListOptions) string {
+	u, err := url.Parse(path)
+	if err != nil {
+		return path
+	}
+
+	q := u.Query()
+	if opts.DateFrom != "" {
+		q.Set("q[invoice_date_gteq]", opts.DateFrom)
+	}
+	if opts.DateTo != "" {
+		q.Set("q[invoice_date_lteq]", opts.DateTo)
+	}
+	if opts.ClientID != 0 {
+		q.Set("q[client_id_eq]", fmt.Sprintf("%d", opts.ClientID))
+	}
+	if opts.Status != "" {
+		q.Set("q[status_eq]", opts.Status)
+	}
+	u.RawQuery = q.Encode()
+	return u.String()
 }

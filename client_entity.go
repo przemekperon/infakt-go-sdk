@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"net/url"
 )
 
 // ClientEntity represents a client (kontrahent) in the inFakt system.
@@ -54,6 +55,10 @@ type ClientEntityRequest struct {
 // ClientEntityService.List method.
 type ClientEntityListOptions struct {
 	ListOptions
+
+	// Filter fields using inFakt query format (q[field_predicate]=value)
+	CompanyName string // q[company_name_cont]
+	NIP         string // q[nip_eq]
 }
 
 // ClientEntityService handles communication with the client entity
@@ -81,6 +86,7 @@ func (s *ClientEntityService) List(ctx context.Context, opts *ClientEntityListOp
 		if err != nil {
 			return nil, nil, err
 		}
+		path = addClientEntityFilters(path, opts)
 	}
 
 	req, err := s.client.newRequest(ctx, http.MethodGet, path, nil)
@@ -164,4 +170,21 @@ func (s *ClientEntityService) Delete(ctx context.Context, id int64) error {
 
 	_, err = s.client.do(req, nil)
 	return err
+}
+
+func addClientEntityFilters(path string, opts *ClientEntityListOptions) string {
+	u, err := url.Parse(path)
+	if err != nil {
+		return path
+	}
+
+	q := u.Query()
+	if opts.CompanyName != "" {
+		q.Set("q[company_name_cont]", opts.CompanyName)
+	}
+	if opts.NIP != "" {
+		q.Set("q[nip_eq]", opts.NIP)
+	}
+	u.RawQuery = q.Encode()
+	return u.String()
 }
