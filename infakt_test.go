@@ -4,8 +4,16 @@ import (
 	"context"
 	"net/http"
 	"net/http/httptest"
+	"sync/atomic"
 	"testing"
+	"time"
 )
+
+// newTestClient creates a client with rate limiting disabled for faster tests.
+func newTestClient(apiKey string, opts ...Option) *Client {
+	opts = append([]Option{WithRateLimit(0)}, opts...)
+	return NewClient(apiKey, opts...)
+}
 
 func TestNewClient(t *testing.T) {
 	c := NewClient("test-api-key")
@@ -18,6 +26,9 @@ func TestNewClient(t *testing.T) {
 	}
 	if c.userAgent != defaultUserAgent {
 		t.Errorf("expected userAgent %q, got %q", defaultUserAgent, c.userAgent)
+	}
+	if c.rateLimiter == nil {
+		t.Error("expected default rate limiter to be set")
 	}
 }
 
@@ -40,8 +51,20 @@ func TestNewClientWithOptions(t *testing.T) {
 	}
 }
 
+func TestWithRateLimit(t *testing.T) {
+	c := NewClient("key", WithRateLimit(500*time.Millisecond))
+	if c.rateLimiter == nil {
+		t.Error("expected rate limiter to be set")
+	}
+
+	c2 := NewClient("key", WithRateLimit(0))
+	if c2.rateLimiter != nil {
+		t.Error("expected rate limiter to be nil when interval is 0")
+	}
+}
+
 func TestNewRequest(t *testing.T) {
-	c := NewClient("my-key")
+	c := newTestClient("my-key")
 
 	req, err := c.newRequest(context.Background(), http.MethodGet, "/v3/invoices.json", nil)
 	if err != nil {
@@ -60,7 +83,7 @@ func TestNewRequest(t *testing.T) {
 }
 
 func TestNewRequestWithBody(t *testing.T) {
-	c := NewClient("key")
+	c := newTestClient("key")
 
 	body := map[string]string{"name": "test"}
 	req, err := c.newRequest(context.Background(), http.MethodPost, "/v3/clients.json", body)
@@ -81,7 +104,7 @@ func TestDo(t *testing.T) {
 	}))
 	defer ts.Close()
 
-	c := NewClient("key", WithBaseURL(ts.URL))
+	c := newTestClient("key", WithBaseURL(ts.URL))
 
 	req, err := c.newRequest(context.Background(), http.MethodGet, "/test", nil)
 	if err != nil {
@@ -96,5 +119,63 @@ func TestDo(t *testing.T) {
 
 	if result["name"] != "test" {
 		t.Errorf("expected name %q, got %q", "test", result["name"])
+	}
+}
+
+func TestDo_RetryOn429(t *testing.T) {
+	var attempts int32
+
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		n := atomic.AddInt32(&attempts, 1)
+		if n == 1 {
+			w.Header().Set("Retry-After", "1")
+			w.WriteHeader(http.StatusTooManyRequests)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte(`{"ok":true}`))
+	}))
+	defer ts.Close()
+
+	c := newTestClient("key", WithBaseURL(ts.URL))
+
+	req, err := c.newRequest(context.Background(), http.MethodGet, "/test", nil)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	var result map[string]bool
+	_, err = c.do(req, &result)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if atomic.LoadInt32(&attempts) != 2 {
+		t.Errorf("expected 2 attempts, got %d", atomic.LoadInt32(&attempts))
+	}
+	if !result["ok"] {
+		t.Error("expected ok=true in response")
+	}
+}
+
+func TestParseRetryAfter(t *testing.T) {
+	tests := []struct {
+		name     string
+		val      string
+		expected time.Duration
+	}{
+		{"empty string", "", time.Second},
+		{"numeric seconds", "5", 5 * time.Second},
+		{"invalid value", "abc", time.Second},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := parseRetryAfter(tt.val)
+			if got != tt.expected {
+				t.Errorf("expected %v, got %v", tt.expected, got)
+			}
+		})
 	}
 }

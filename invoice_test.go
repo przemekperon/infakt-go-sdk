@@ -27,7 +27,7 @@ func TestInvoiceService_List(t *testing.T) {
 	}))
 	defer ts.Close()
 
-	c := NewClient("key", WithBaseURL(ts.URL))
+	c := newTestClient("key", WithBaseURL(ts.URL))
 	invoices, meta, err := c.Invoices.List(context.Background(), nil)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -61,7 +61,7 @@ func TestInvoiceService_Get(t *testing.T) {
 	}))
 	defer ts.Close()
 
-	c := NewClient("key", WithBaseURL(ts.URL))
+	c := newTestClient("key", WithBaseURL(ts.URL))
 	invoice, err := c.Invoices.Get(context.Background(), 99)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -101,7 +101,7 @@ func TestInvoiceService_Create(t *testing.T) {
 	}))
 	defer ts.Close()
 
-	c := NewClient("key", WithBaseURL(ts.URL))
+	c := newTestClient("key", WithBaseURL(ts.URL))
 	invoice, err := c.Invoices.Create(context.Background(), &Invoice{
 		ClientID:    42,
 		InvoiceDate: "2025-03-01",
@@ -133,7 +133,7 @@ func TestInvoiceService_Update(t *testing.T) {
 	}))
 	defer ts.Close()
 
-	c := NewClient("key", WithBaseURL(ts.URL))
+	c := newTestClient("key", WithBaseURL(ts.URL))
 	invoice, err := c.Invoices.Update(context.Background(), 99, &Invoice{
 		Notes: "Updated notes",
 	})
@@ -155,7 +155,7 @@ func TestInvoiceService_Delete(t *testing.T) {
 	}))
 	defer ts.Close()
 
-	c := NewClient("key", WithBaseURL(ts.URL))
+	c := newTestClient("key", WithBaseURL(ts.URL))
 	err := c.Invoices.Delete(context.Background(), 99)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -174,7 +174,7 @@ func TestInvoiceService_MarkAsPaid(t *testing.T) {
 	}))
 	defer ts.Close()
 
-	c := NewClient("key", WithBaseURL(ts.URL))
+	c := newTestClient("key", WithBaseURL(ts.URL))
 	err := c.Invoices.MarkAsPaid(context.Background(), 99, "2025-11-16")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -193,7 +193,7 @@ func TestInvoiceService_SendByEmail(t *testing.T) {
 	}))
 	defer ts.Close()
 
-	c := NewClient("key", WithBaseURL(ts.URL))
+	c := newTestClient("key", WithBaseURL(ts.URL))
 	err := c.Invoices.SendByEmail(context.Background(), 99, "test@example.com")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -212,7 +212,7 @@ func TestInvoiceService_GetPDF(t *testing.T) {
 	}))
 	defer ts.Close()
 
-	c := NewClient("key", WithBaseURL(ts.URL))
+	c := newTestClient("key", WithBaseURL(ts.URL))
 	data, err := c.Invoices.GetPDF(context.Background(), 99)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -241,7 +241,7 @@ func TestInvoiceService_GetNextNumber(t *testing.T) {
 	}))
 	defer ts.Close()
 
-	c := NewClient("key", WithBaseURL(ts.URL))
+	c := newTestClient("key", WithBaseURL(ts.URL))
 	number, err := c.Invoices.GetNextNumber(context.Background(), "vat")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)

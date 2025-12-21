@@ -49,7 +49,7 @@ func TestErrorResponse_As(t *testing.T) {
 	}))
 	defer ts.Close()
 
-	c := NewClient("key", WithBaseURL(ts.URL))
+	c := newTestClient("key", WithBaseURL(ts.URL))
 	req, _ := c.newRequest(context.Background(), http.MethodGet, "/test", nil)
 	_, err := c.do(req, nil)
 
@@ -85,7 +85,7 @@ func TestCheckResponse_ErrorWithJSONBody(t *testing.T) {
 	}))
 	defer ts.Close()
 
-	c := NewClient("bad-key", WithBaseURL(ts.URL))
+	c := newTestClient("bad-key", WithBaseURL(ts.URL))
 	req, _ := c.newRequest(context.Background(), http.MethodGet, "/test", nil)
 	_, err := c.do(req, nil)
 

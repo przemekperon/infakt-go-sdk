@@ -28,7 +28,7 @@ func TestProductService_List(t *testing.T) {
 	}))
 	defer ts.Close()
 
-	c := NewClient("key", WithBaseURL(ts.URL))
+	c := newTestClient("key", WithBaseURL(ts.URL))
 	products, meta, err := c.Products.List(context.Background(), nil)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -56,7 +56,7 @@ func TestProductService_Get(t *testing.T) {
 	}))
 	defer ts.Close()
 
-	c := NewClient("key", WithBaseURL(ts.URL))
+	c := newTestClient("key", WithBaseURL(ts.URL))
 	product, err := c.Products.Get(context.Background(), 10)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -82,7 +82,7 @@ func TestProductService_Create(t *testing.T) {
 	}))
 	defer ts.Close()
 
-	c := NewClient("key", WithBaseURL(ts.URL))
+	c := newTestClient("key", WithBaseURL(ts.URL))
 	product, err := c.Products.Create(context.Background(), &Product{
 		Name:         "New Product",
 		UnitNetPrice: 10000,
@@ -110,7 +110,7 @@ func TestProductService_Update(t *testing.T) {
 	}))
 	defer ts.Close()
 
-	c := NewClient("key", WithBaseURL(ts.URL))
+	c := newTestClient("key", WithBaseURL(ts.URL))
 	product, err := c.Products.Update(context.Background(), 10, &Product{
 		Name: "Updated Product",
 	})
@@ -132,7 +132,7 @@ func TestProductService_Delete(t *testing.T) {
 	}))
 	defer ts.Close()
 
-	c := NewClient("key", WithBaseURL(ts.URL))
+	c := newTestClient("key", WithBaseURL(ts.URL))
 	err := c.Products.Delete(context.Background(), 10)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)

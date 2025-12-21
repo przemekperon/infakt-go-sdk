@@ -28,7 +28,7 @@ func TestBankAccountService_List(t *testing.T) {
 	}))
 	defer ts.Close()
 
-	c := NewClient("key", WithBaseURL(ts.URL))
+	c := newTestClient("key", WithBaseURL(ts.URL))
 	accounts, meta, err := c.BankAccounts.List(context.Background(), nil)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -65,7 +65,7 @@ func TestBankAccountService_ListWithPagination(t *testing.T) {
 	}))
 	defer ts.Close()
 
-	c := NewClient("key", WithBaseURL(ts.URL))
+	c := newTestClient("key", WithBaseURL(ts.URL))
 	accounts, meta, err := c.BankAccounts.List(context.Background(), &ListOptions{Limit: 1})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)

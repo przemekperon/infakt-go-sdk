@@ -29,7 +29,7 @@ func TestVatRateService_List(t *testing.T) {
 	}))
 	defer ts.Close()
 
-	c := NewClient("key", WithBaseURL(ts.URL))
+	c := newTestClient("key", WithBaseURL(ts.URL))
 	rates, meta, err := c.VatRates.List(context.Background(), nil)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)

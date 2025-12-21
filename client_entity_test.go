@@ -28,7 +28,7 @@ func TestClientEntityService_List(t *testing.T) {
 	}))
 	defer ts.Close()
 
-	c := NewClient("key", WithBaseURL(ts.URL))
+	c := newTestClient("key", WithBaseURL(ts.URL))
 	entities, meta, err := c.Clients.List(context.Background(), nil)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -60,7 +60,7 @@ func TestClientEntityService_Get(t *testing.T) {
 	}))
 	defer ts.Close()
 
-	c := NewClient("key", WithBaseURL(ts.URL))
+	c := newTestClient("key", WithBaseURL(ts.URL))
 	entity, err := c.Clients.Get(context.Background(), 42)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -96,7 +96,7 @@ func TestClientEntityService_Create(t *testing.T) {
 	}))
 	defer ts.Close()
 
-	c := NewClient("key", WithBaseURL(ts.URL))
+	c := newTestClient("key", WithBaseURL(ts.URL))
 	entity, err := c.Clients.Create(context.Background(), &ClientEntity{
 		CompanyName: "New Corp",
 	})
@@ -126,7 +126,7 @@ func TestClientEntityService_Update(t *testing.T) {
 	}))
 	defer ts.Close()
 
-	c := NewClient("key", WithBaseURL(ts.URL))
+	c := newTestClient("key", WithBaseURL(ts.URL))
 	entity, err := c.Clients.Update(context.Background(), 42, &ClientEntity{
 		CompanyName: "Updated Corp",
 	})
@@ -151,7 +151,7 @@ func TestClientEntityService_Delete(t *testing.T) {
 	}))
 	defer ts.Close()
 
-	c := NewClient("key", WithBaseURL(ts.URL))
+	c := newTestClient("key", WithBaseURL(ts.URL))
 	err := c.Clients.Delete(context.Background(), 42)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -180,7 +180,7 @@ func TestClientEntityService_ListWithPagination(t *testing.T) {
 	}))
 	defer ts.Close()
 
-	c := NewClient("key", WithBaseURL(ts.URL))
+	c := newTestClient("key", WithBaseURL(ts.URL))
 	entities, meta, err := c.Clients.List(context.Background(), &ClientEntityListOptions{
 		ListOptions: ListOptions{Offset: 10, Limit: 5},
 	})
