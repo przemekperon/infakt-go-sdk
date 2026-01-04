@@ -1,0 +1,28 @@
+run:
+  timeout: 5m
+
+linters:
+  enable:
+    - errcheck
+    - gosimple
+    - govet
+    - ineffassign
+    - staticcheck
+    - unused
+    - bodyclose
+    - misspell
+    - unconvert
+    - unparam
+    - gofmt
+    - goimports
+
+linters-settings:
+  misspell:
+    locale: US
+  goimports:
+    local-prefixes: github.com/przemekperon/golang-infakt
+
+issues:
+  exclude-use-default: false
+  max-issues-per-linter: 0
+  max-same-issues: 0
