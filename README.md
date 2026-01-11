@@ -1,5 +1,6 @@
 # golang-infakt
 
+[![CI](https://github.com/przemekperon/golang-infakt/actions/workflows/ci.yml/badge.svg)](https://github.com/przemekperon/golang-infakt/actions/workflows/ci.yml)
 [![Go Reference](https://pkg.go.dev/badge/github.com/przemekperon/golang-infakt.svg)](https://pkg.go.dev/github.com/przemekperon/golang-infakt)
 [![Go Report Card](https://goreportcard.com/badge/github.com/przemekperon/golang-infakt)](https://goreportcard.com/report/github.com/przemekperon/golang-infakt)
 
