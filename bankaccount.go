@@ -13,7 +13,8 @@ type BankAccount struct {
 	AccountNumber string `json:"account_number,omitempty"`
 	Swift         string `json:"swift,omitempty"`
 	Currency      string `json:"currency,omitempty"`
-	IsDefault     bool   `json:"is_default,omitempty"`
+	Default       bool   `json:"default,omitempty"`
+	CustomName    string `json:"custom_name,omitempty"`
 }
 
 // BankAccountService handles communication with the bank account related

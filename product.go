@@ -9,14 +9,21 @@ import (
 
 // Product represents a product in the inFakt system.
 type Product struct {
-	ID           int64   `json:"id,omitempty"`
-	Name         string  `json:"name,omitempty"`
-	Description  string  `json:"description,omitempty"`
-	Unit         string  `json:"unit,omitempty"`
-	PKWiU        string  `json:"pkwiu,omitempty"`
-	TaxSymbol    string  `json:"tax_symbol,omitempty"`
-	UnitNetPrice int     `json:"unit_net_price,omitempty"`
-	Quantity     float64 `json:"quantity,omitempty"`
+	ID                         int64   `json:"id,omitempty"`
+	UUID                       string  `json:"uuid,omitempty"`
+	Name                       string  `json:"name,omitempty"`
+	Symbol                     string  `json:"symbol,omitempty"`
+	Unit                       string  `json:"unit,omitempty"`
+	PKWiU                      string  `json:"pkwiu,omitempty"`
+	TaxSymbol                  string  `json:"tax_symbol,omitempty"`
+	FlatRateTaxSymbol          string  `json:"flat_rate_tax_symbol,omitempty"`
+	UnitNetPrice               int     `json:"unit_net_price,omitempty"`
+	UnitNetPriceBeforeDiscount int     `json:"unit_net_price_before_discount,omitempty"`
+	NetPrice                   int     `json:"net_price,omitempty"`
+	TaxPrice                   int     `json:"tax_price,omitempty"`
+	GrossPrice                 int     `json:"gross_price,omitempty"`
+	Quantity                   float64 `json:"quantity,omitempty"`
+	Discount                   string  `json:"discount,omitempty"`
 }
 
 // ProductRequest is used for creating and updating products.

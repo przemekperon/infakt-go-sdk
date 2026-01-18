@@ -8,10 +8,12 @@ import (
 
 // VatRate represents a VAT rate in the inFakt system.
 type VatRate struct {
-	ID     int64  `json:"id,omitempty"`
-	Name   string `json:"name,omitempty"`
-	Rate   int    `json:"rate,omitempty"`
-	Symbol string `json:"symbol,omitempty"`
+	ID         int64  `json:"id,omitempty"`
+	Name       string `json:"name,omitempty"`
+	Rate       string `json:"rate,omitempty"`
+	Symbol     string `json:"symbol,omitempty"`
+	ValidFrom  string `json:"valid_from,omitempty"`
+	ValidUntil string `json:"valid_until,omitempty"`
 }
 
 // VatRateService handles communication with the VAT rate related

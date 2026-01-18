@@ -21,7 +21,7 @@ func TestBankAccountService_List(t *testing.T) {
 		json.NewEncoder(w).Encode(bankAccountListRoot{
 			MetaInfo: MetaInfo{Count: 2, TotalCount: 2},
 			Entities: []BankAccount{
-				{ID: 1, BankName: "mBank", AccountNumber: "PL12345678901234567890123456", IsDefault: true},
+				{ID: 1, BankName: "mBank", AccountNumber: "PL12345678901234567890123456", Default: true},
 				{ID: 2, BankName: "ING", AccountNumber: "PL65432109876543210987654321"},
 			},
 		})
@@ -43,7 +43,7 @@ func TestBankAccountService_List(t *testing.T) {
 	if accounts[0].BankName != "mBank" {
 		t.Errorf("expected BankName %q, got %q", "mBank", accounts[0].BankName)
 	}
-	if !accounts[0].IsDefault {
+	if !accounts[0].Default {
 		t.Error("expected first account to be default")
 	}
 }

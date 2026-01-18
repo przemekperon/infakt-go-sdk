@@ -10,53 +10,68 @@ import (
 
 // Invoice represents an invoice in the inFakt system.
 type Invoice struct {
-	ID                   int64          `json:"id,omitempty"`
-	Number               string         `json:"number,omitempty"`
-	Currency             string         `json:"currency,omitempty"`
-	PaidPrice            int            `json:"paid_price,omitempty"`
-	Notes                string         `json:"notes,omitempty"`
-	Kind                 string         `json:"kind,omitempty"`
-	PaymentMethod        string         `json:"payment_method,omitempty"`
-	RecipientSignature   string         `json:"recipient_signature,omitempty"`
-	SellerSignature      string         `json:"seller_signature,omitempty"`
-	InvoiceDate          string         `json:"invoice_date,omitempty"`
-	SaleDate             string         `json:"sale_date,omitempty"`
-	PaymentDate          string         `json:"payment_date,omitempty"`
-	Status               string         `json:"status,omitempty"`
-	PaidDate             string         `json:"paid_date,omitempty"`
-	NetPrice             int            `json:"net_price,omitempty"`
-	TaxPrice             int            `json:"tax_price,omitempty"`
-	GrossPrice           int            `json:"gross_price,omitempty"`
-	ClientID             int64          `json:"client_id,omitempty"`
-	ClientCompanyName    string         `json:"client_company_name,omitempty"`
-	ClientStreet         string         `json:"client_street,omitempty"`
-	ClientCity           string         `json:"client_city,omitempty"`
-	ClientPostCode       string         `json:"client_post_code,omitempty"`
-	ClientTaxCode        string         `json:"client_tax_code,omitempty"`
-	ClientCountry        string         `json:"client_country,omitempty"`
-	BankName             string         `json:"bank_name,omitempty"`
-	BankAccount          string         `json:"bank_account,omitempty"`
-	SwiftCode            string         `json:"swift_code,omitempty"`
-	SaleType             string         `json:"sale_type,omitempty"`
-	InvoiceDateKind      string         `json:"invoice_date_kind,omitempty"`
-	Services             []ServiceEntry `json:"services,omitempty"`
-	Extensions           *Extensions    `json:"extensions,omitempty"`
+	ID                        int64          `json:"id,omitempty"`
+	UUID                      string         `json:"uuid,omitempty"`
+	ParentID                  *int64         `json:"parent_id,omitempty"`
+	Number                    string         `json:"number,omitempty"`
+	Currency                  string         `json:"currency,omitempty"`
+	PaidPrice                 int            `json:"paid_price,omitempty"`
+	Notes                     string         `json:"notes,omitempty"`
+	Kind                      string         `json:"kind,omitempty"`
+	PaymentMethod             string         `json:"payment_method,omitempty"`
+	SplitPayment              bool           `json:"split_payment,omitempty"`
+	RecipientSignature        string         `json:"recipient_signature,omitempty"`
+	SellerSignature           string         `json:"seller_signature,omitempty"`
+	InvoiceDate               string         `json:"invoice_date,omitempty"`
+	SaleDate                  string         `json:"sale_date,omitempty"`
+	PaymentDate               string         `json:"payment_date,omitempty"`
+	Status                    string         `json:"status,omitempty"`
+	PaidDate                  string         `json:"paid_date,omitempty"`
+	NetPrice                  int            `json:"net_price,omitempty"`
+	TaxPrice                  int            `json:"tax_price,omitempty"`
+	GrossPrice                int            `json:"gross_price,omitempty"`
+	LeftToPay                 int            `json:"left_to_pay,omitempty"`
+	ClientID                  int64          `json:"client_id,omitempty"`
+	ClientUUID                string         `json:"client_uuid,omitempty"`
+	ClientCompanyName         string         `json:"client_company_name,omitempty"`
+	ClientFirstName           string         `json:"client_first_name,omitempty"`
+	ClientLastName            string         `json:"client_last_name,omitempty"`
+	ClientBusinessActivityKind string        `json:"client_business_activity_kind,omitempty"`
+	ClientStreet              string         `json:"client_street,omitempty"`
+	ClientStreetNumber        string         `json:"client_street_number,omitempty"`
+	ClientFlatNumber          string         `json:"client_flat_number,omitempty"`
+	ClientCity                string         `json:"client_city,omitempty"`
+	ClientPostCode            string         `json:"client_post_code,omitempty"`
+	ClientTaxCode             string         `json:"client_tax_code,omitempty"`
+	ClientCountry             string         `json:"client_country,omitempty"`
+	BankName                  string         `json:"bank_name,omitempty"`
+	BankAccount               string         `json:"bank_account,omitempty"`
+	Swift                     string         `json:"swift,omitempty"`
+	SaleType                  string         `json:"sale_type,omitempty"`
+	InvoiceDateKind           string         `json:"invoice_date_kind,omitempty"`
+	VatExemptionReason        string         `json:"vat_exemption_reason,omitempty"`
+	SalesKind                 string         `json:"sales_kind,omitempty"`
+	AmountInWords             string         `json:"amount_in_words,omitempty"`
+	CreatedAt                 string         `json:"created_at,omitempty"`
+	Services                  []ServiceEntry `json:"services,omitempty"`
+	Extensions                *Extensions    `json:"extensions,omitempty"`
 }
 
 // ServiceEntry represents a line item on an invoice.
 type ServiceEntry struct {
-	ID                 int64   `json:"id,omitempty"`
-	Name               string  `json:"name,omitempty"`
-	TaxSymbol          string  `json:"tax_symbol,omitempty"`
-	Unit               string  `json:"unit,omitempty"`
-	Quantity            float64 `json:"quantity,omitempty"`
-	UnitNetPrice       int     `json:"unit_net_price,omitempty"`
-	UnitNetPriceBeforeDiscount int `json:"unit_net_price_before_discount,omitempty"`
-	NetPrice           int     `json:"net_price,omitempty"`
-	GrossPrice         int     `json:"gross_price,omitempty"`
-	TaxPrice           int     `json:"tax_price,omitempty"`
-	Symbol             string  `json:"symbol,omitempty"`
-	Discount            float64 `json:"discount,omitempty"`
+	ID                         int64   `json:"id,omitempty"`
+	Name                       string  `json:"name,omitempty"`
+	TaxSymbol                  string  `json:"tax_symbol,omitempty"`
+	Unit                       string  `json:"unit,omitempty"`
+	Quantity                   float64 `json:"quantity,omitempty"`
+	UnitNetPrice               int     `json:"unit_net_price,omitempty"`
+	UnitNetPriceBeforeDiscount int     `json:"unit_net_price_before_discount,omitempty"`
+	NetPrice                   int     `json:"net_price,omitempty"`
+	GrossPrice                 int     `json:"gross_price,omitempty"`
+	TaxPrice                   int     `json:"tax_price,omitempty"`
+	Symbol                     string  `json:"symbol,omitempty"`
+	PKWiU                      string  `json:"pkwiu,omitempty"`
+	Discount                   string  `json:"discount,omitempty"`
 }
 
 // Extensions represents additional invoice settings.
@@ -95,7 +110,8 @@ type ServiceEntryRequest struct {
 	Quantity     *float64 `json:"quantity,omitempty"`
 	UnitNetPrice *int     `json:"unit_net_price,omitempty"`
 	Symbol       *string  `json:"symbol,omitempty"`
-	Discount     *float64 `json:"discount,omitempty"`
+	PKWiU        *string  `json:"pkwiu,omitempty"`
+	Discount     *string  `json:"discount,omitempty"`
 }
 
 // InvoiceListOptions specifies the optional parameters to the
