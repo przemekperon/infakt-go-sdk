@@ -4,6 +4,7 @@ import (
 	"context"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -156,6 +157,67 @@ func TestDo_RetryOn429(t *testing.T) {
 	}
 	if !result["ok"] {
 		t.Error("expected ok=true in response")
+	}
+}
+
+func TestDo_RetryOnServerError(t *testing.T) {
+	var attempts int32
+
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		n := atomic.AddInt32(&attempts, 1)
+		if n < 3 {
+			w.WriteHeader(http.StatusInternalServerError)
+			w.Write([]byte(`{"error":"internal server error"}`))
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte(`{"recovered":true}`))
+	}))
+	defer ts.Close()
+
+	c := newTestClient("key", WithBaseURL(ts.URL))
+
+	req, err := c.newRequest(context.Background(), http.MethodGet, "/test", nil)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	var result map[string]bool
+	_, err = c.do(req, &result)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if atomic.LoadInt32(&attempts) != 3 {
+		t.Errorf("expected 3 attempts, got %d", atomic.LoadInt32(&attempts))
+	}
+	if !result["recovered"] {
+		t.Error("expected recovered=true in response")
+	}
+}
+
+func TestErrorResponse_IncludesContext(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusNotFound)
+		w.Write([]byte(`{"message":"not found"}`))
+	}))
+	defer ts.Close()
+
+	c := newTestClient("key", WithBaseURL(ts.URL))
+	req, _ := c.newRequest(context.Background(), http.MethodGet, "/v3/invoices/999.json", nil)
+	_, err := c.do(req, nil)
+
+	if err == nil {
+		t.Fatal("expected error, got nil")
+	}
+
+	errMsg := err.Error()
+	if !strings.Contains(errMsg, "GET") {
+		t.Errorf("expected error to contain method, got: %s", errMsg)
+	}
+	if !strings.Contains(errMsg, "/v3/invoices/999.json") {
+		t.Errorf("expected error to contain endpoint, got: %s", errMsg)
 	}
 }
 

@@ -27,10 +27,16 @@ type ErrorResponse struct {
 	Response   *http.Response `json:"-"`
 	StatusCode int            `json:"status_code"`
 	Message    string         `json:"message"`
+	Method     string         `json:"-"`
+	Endpoint   string         `json:"-"`
 }
 
 // Error implements the error interface.
 func (e *ErrorResponse) Error() string {
+	if e.Method != "" && e.Endpoint != "" {
+		return fmt.Sprintf("infakt: %s %s: API error (status %d): %s",
+			e.Method, e.Endpoint, e.StatusCode, e.Message)
+	}
 	return fmt.Sprintf("infakt: API error (status %d): %s", e.StatusCode, e.Message)
 }
 
@@ -49,7 +55,8 @@ func (e *ErrorResponse) Is(target error) bool {
 	return false
 }
 
-// checkResponse checks the API response for errors.
+// checkResponse checks the API response for errors and includes request
+// context (method and endpoint) in the error for easier debugging.
 func checkResponse(r *http.Response) error {
 	if r.StatusCode >= 200 && r.StatusCode <= 299 {
 		return nil
@@ -58,6 +65,11 @@ func checkResponse(r *http.Response) error {
 	errResp := &ErrorResponse{
 		Response:   r,
 		StatusCode: r.StatusCode,
+	}
+
+	if r.Request != nil {
+		errResp.Method = r.Request.Method
+		errResp.Endpoint = r.Request.URL.Path
 	}
 
 	data, err := io.ReadAll(r.Body)
