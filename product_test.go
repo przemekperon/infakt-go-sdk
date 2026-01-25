@@ -18,7 +18,7 @@ func TestProductService_List(t *testing.T) {
 		}
 
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(productListRoot{
+		_ = json.NewEncoder(w).Encode(productListRoot{
 			MetaInfo: MetaInfo{Count: 2, TotalCount: 2},
 			Entities: []Product{
 				{ID: 1, Name: "Hosting"},
@@ -49,7 +49,7 @@ func TestProductService_Get(t *testing.T) {
 		}
 
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(Product{
+		_ = json.NewEncoder(w).Encode(Product{
 			ID:   10,
 			Name: "Consulting",
 		})
@@ -75,7 +75,7 @@ func TestProductService_Create(t *testing.T) {
 
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusCreated)
-		json.NewEncoder(w).Encode(Product{
+		_ = json.NewEncoder(w).Encode(Product{
 			ID:   50,
 			Name: "New Product",
 		})
@@ -103,7 +103,7 @@ func TestProductService_Update(t *testing.T) {
 		}
 
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(Product{
+		_ = json.NewEncoder(w).Encode(Product{
 			ID:   10,
 			Name: "Updated Product",
 		})

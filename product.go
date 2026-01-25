@@ -80,7 +80,7 @@ func (s *ProductService) List(ctx context.Context, opts *ProductListOptions) ([]
 	}
 
 	var root productListRoot
-	_, err = s.client.do(req, &root)
+	err = s.client.do(req, &root)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -98,7 +98,7 @@ func (s *ProductService) Get(ctx context.Context, id int64) (*Product, error) {
 	}
 
 	var product Product
-	_, err = s.client.do(req, &product)
+	err = s.client.do(req, &product)
 	if err != nil {
 		return nil, err
 	}
@@ -117,7 +117,7 @@ func (s *ProductService) Create(ctx context.Context, product *Product) (*Product
 	}
 
 	var created Product
-	_, err = s.client.do(req, &created)
+	err = s.client.do(req, &created)
 	if err != nil {
 		return nil, err
 	}
@@ -136,7 +136,7 @@ func (s *ProductService) Update(ctx context.Context, id int64, product *Product)
 	}
 
 	var updated Product
-	_, err = s.client.do(req, &updated)
+	err = s.client.do(req, &updated)
 	if err != nil {
 		return nil, err
 	}
@@ -153,8 +153,7 @@ func (s *ProductService) Delete(ctx context.Context, id int64) error {
 		return err
 	}
 
-	_, err = s.client.do(req, nil)
-	return err
+	return s.client.do(req, nil)
 }
 
 func addProductFilters(path string, opts *ProductListOptions) string {

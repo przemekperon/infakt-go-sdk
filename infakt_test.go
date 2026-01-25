@@ -101,7 +101,7 @@ func TestDo(t *testing.T) {
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(`{"name":"test"}`))
+		_, _ = w.Write([]byte(`{"name":"test"}`))
 	}))
 	defer ts.Close()
 
@@ -113,7 +113,7 @@ func TestDo(t *testing.T) {
 	}
 
 	var result map[string]string
-	_, err = c.do(req, &result)
+	err = c.do(req, &result)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -135,7 +135,7 @@ func TestDo_RetryOn429(t *testing.T) {
 		}
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(`{"ok":true}`))
+		_, _ = w.Write([]byte(`{"ok":true}`))
 	}))
 	defer ts.Close()
 
@@ -147,7 +147,7 @@ func TestDo_RetryOn429(t *testing.T) {
 	}
 
 	var result map[string]bool
-	_, err = c.do(req, &result)
+	err = c.do(req, &result)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -167,12 +167,12 @@ func TestDo_RetryOnServerError(t *testing.T) {
 		n := atomic.AddInt32(&attempts, 1)
 		if n < 3 {
 			w.WriteHeader(http.StatusInternalServerError)
-			w.Write([]byte(`{"error":"internal server error"}`))
+			_, _ = w.Write([]byte(`{"error":"internal server error"}`))
 			return
 		}
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(`{"recovered":true}`))
+		_, _ = w.Write([]byte(`{"recovered":true}`))
 	}))
 	defer ts.Close()
 
@@ -184,7 +184,7 @@ func TestDo_RetryOnServerError(t *testing.T) {
 	}
 
 	var result map[string]bool
-	_, err = c.do(req, &result)
+	err = c.do(req, &result)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -200,13 +200,13 @@ func TestDo_RetryOnServerError(t *testing.T) {
 func TestErrorResponse_IncludesContext(t *testing.T) {
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusNotFound)
-		w.Write([]byte(`{"message":"not found"}`))
+		_, _ = w.Write([]byte(`{"message":"not found"}`))
 	}))
 	defer ts.Close()
 
 	c := newTestClient("key", WithBaseURL(ts.URL))
 	req, _ := c.newRequest(context.Background(), http.MethodGet, "/v3/invoices/999.json", nil)
-	_, err := c.do(req, nil)
+	err := c.do(req, nil)
 
 	if err == nil {
 		t.Fatal("expected error, got nil")

@@ -46,7 +46,7 @@ func (s *BankAccountService) List(ctx context.Context, opts *ListOptions) ([]Ban
 	}
 
 	var root bankAccountListRoot
-	_, err = s.client.do(req, &root)
+	err = s.client.do(req, &root)
 	if err != nil {
 		return nil, nil, err
 	}

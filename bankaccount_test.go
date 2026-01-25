@@ -18,7 +18,7 @@ func TestBankAccountService_List(t *testing.T) {
 		}
 
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(bankAccountListRoot{
+		_ = json.NewEncoder(w).Encode(bankAccountListRoot{
 			MetaInfo: MetaInfo{Count: 2, TotalCount: 2},
 			Entities: []BankAccount{
 				{ID: 1, BankName: "mBank", AccountNumber: "PL12345678901234567890123456", Default: true},
@@ -56,7 +56,7 @@ func TestBankAccountService_ListWithPagination(t *testing.T) {
 		}
 
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(bankAccountListRoot{
+		_ = json.NewEncoder(w).Encode(bankAccountListRoot{
 			MetaInfo: MetaInfo{Count: 1, TotalCount: 5},
 			Entities: []BankAccount{
 				{ID: 1, BankName: "PKO"},

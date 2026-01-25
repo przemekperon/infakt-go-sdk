@@ -45,13 +45,13 @@ func TestErrorResponse_As(t *testing.T) {
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusNotFound)
-		w.Write([]byte(`{"message":"invoice not found"}`))
+		_, _ = w.Write([]byte(`{"message":"invoice not found"}`))
 	}))
 	defer ts.Close()
 
 	c := newTestClient("key", WithBaseURL(ts.URL))
 	req, _ := c.newRequest(context.Background(), http.MethodGet, "/test", nil)
-	_, err := c.do(req, nil)
+	err := c.do(req, nil)
 
 	if err == nil {
 		t.Fatal("expected error, got nil")
@@ -81,13 +81,13 @@ func TestCheckResponse_ErrorWithJSONBody(t *testing.T) {
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusUnauthorized)
-		w.Write([]byte(`{"error":"invalid api key"}`))
+		_, _ = w.Write([]byte(`{"error":"invalid api key"}`))
 	}))
 	defer ts.Close()
 
 	c := newTestClient("bad-key", WithBaseURL(ts.URL))
 	req, _ := c.newRequest(context.Background(), http.MethodGet, "/test", nil)
-	_, err := c.do(req, nil)
+	err := c.do(req, nil)
 
 	if !errors.Is(err, ErrUnauthorized) {
 		t.Errorf("expected ErrUnauthorized, got %v", err)

@@ -3,58 +3,57 @@ package infakt
 import (
 	"context"
 	"fmt"
-	"io"
 	"net/http"
 	"net/url"
 )
 
 // Invoice represents an invoice in the inFakt system.
 type Invoice struct {
-	ID                        int64          `json:"id,omitempty"`
-	UUID                      string         `json:"uuid,omitempty"`
-	ParentID                  *int64         `json:"parent_id,omitempty"`
-	Number                    string         `json:"number,omitempty"`
-	Currency                  string         `json:"currency,omitempty"`
-	PaidPrice                 int            `json:"paid_price,omitempty"`
-	Notes                     string         `json:"notes,omitempty"`
-	Kind                      string         `json:"kind,omitempty"`
-	PaymentMethod             string         `json:"payment_method,omitempty"`
-	SplitPayment              bool           `json:"split_payment,omitempty"`
-	RecipientSignature        string         `json:"recipient_signature,omitempty"`
-	SellerSignature           string         `json:"seller_signature,omitempty"`
-	InvoiceDate               string         `json:"invoice_date,omitempty"`
-	SaleDate                  string         `json:"sale_date,omitempty"`
-	PaymentDate               string         `json:"payment_date,omitempty"`
-	Status                    string         `json:"status,omitempty"`
-	PaidDate                  string         `json:"paid_date,omitempty"`
-	NetPrice                  int            `json:"net_price,omitempty"`
-	TaxPrice                  int            `json:"tax_price,omitempty"`
-	GrossPrice                int            `json:"gross_price,omitempty"`
-	LeftToPay                 int            `json:"left_to_pay,omitempty"`
-	ClientID                  int64          `json:"client_id,omitempty"`
-	ClientUUID                string         `json:"client_uuid,omitempty"`
-	ClientCompanyName         string         `json:"client_company_name,omitempty"`
-	ClientFirstName           string         `json:"client_first_name,omitempty"`
-	ClientLastName            string         `json:"client_last_name,omitempty"`
-	ClientBusinessActivityKind string        `json:"client_business_activity_kind,omitempty"`
-	ClientStreet              string         `json:"client_street,omitempty"`
-	ClientStreetNumber        string         `json:"client_street_number,omitempty"`
-	ClientFlatNumber          string         `json:"client_flat_number,omitempty"`
-	ClientCity                string         `json:"client_city,omitempty"`
-	ClientPostCode            string         `json:"client_post_code,omitempty"`
-	ClientTaxCode             string         `json:"client_tax_code,omitempty"`
-	ClientCountry             string         `json:"client_country,omitempty"`
-	BankName                  string         `json:"bank_name,omitempty"`
-	BankAccount               string         `json:"bank_account,omitempty"`
-	Swift                     string         `json:"swift,omitempty"`
-	SaleType                  string         `json:"sale_type,omitempty"`
-	InvoiceDateKind           string         `json:"invoice_date_kind,omitempty"`
-	VatExemptionReason        string         `json:"vat_exemption_reason,omitempty"`
-	SalesKind                 string         `json:"sales_kind,omitempty"`
-	AmountInWords             string         `json:"amount_in_words,omitempty"`
-	CreatedAt                 string         `json:"created_at,omitempty"`
-	Services                  []ServiceEntry `json:"services,omitempty"`
-	Extensions                *Extensions    `json:"extensions,omitempty"`
+	ID                         int64          `json:"id,omitempty"`
+	UUID                       string         `json:"uuid,omitempty"`
+	ParentID                   *int64         `json:"parent_id,omitempty"`
+	Number                     string         `json:"number,omitempty"`
+	Currency                   string         `json:"currency,omitempty"`
+	PaidPrice                  int            `json:"paid_price,omitempty"`
+	Notes                      string         `json:"notes,omitempty"`
+	Kind                       string         `json:"kind,omitempty"`
+	PaymentMethod              string         `json:"payment_method,omitempty"`
+	SplitPayment               bool           `json:"split_payment,omitempty"`
+	RecipientSignature         string         `json:"recipient_signature,omitempty"`
+	SellerSignature            string         `json:"seller_signature,omitempty"`
+	InvoiceDate                string         `json:"invoice_date,omitempty"`
+	SaleDate                   string         `json:"sale_date,omitempty"`
+	PaymentDate                string         `json:"payment_date,omitempty"`
+	Status                     string         `json:"status,omitempty"`
+	PaidDate                   string         `json:"paid_date,omitempty"`
+	NetPrice                   int            `json:"net_price,omitempty"`
+	TaxPrice                   int            `json:"tax_price,omitempty"`
+	GrossPrice                 int            `json:"gross_price,omitempty"`
+	LeftToPay                  int            `json:"left_to_pay,omitempty"`
+	ClientID                   int64          `json:"client_id,omitempty"`
+	ClientUUID                 string         `json:"client_uuid,omitempty"`
+	ClientCompanyName          string         `json:"client_company_name,omitempty"`
+	ClientFirstName            string         `json:"client_first_name,omitempty"`
+	ClientLastName             string         `json:"client_last_name,omitempty"`
+	ClientBusinessActivityKind string         `json:"client_business_activity_kind,omitempty"`
+	ClientStreet               string         `json:"client_street,omitempty"`
+	ClientStreetNumber         string         `json:"client_street_number,omitempty"`
+	ClientFlatNumber           string         `json:"client_flat_number,omitempty"`
+	ClientCity                 string         `json:"client_city,omitempty"`
+	ClientPostCode             string         `json:"client_post_code,omitempty"`
+	ClientTaxCode              string         `json:"client_tax_code,omitempty"`
+	ClientCountry              string         `json:"client_country,omitempty"`
+	BankName                   string         `json:"bank_name,omitempty"`
+	BankAccount                string         `json:"bank_account,omitempty"`
+	Swift                      string         `json:"swift,omitempty"`
+	SaleType                   string         `json:"sale_type,omitempty"`
+	InvoiceDateKind            string         `json:"invoice_date_kind,omitempty"`
+	VatExemptionReason         string         `json:"vat_exemption_reason,omitempty"`
+	SalesKind                  string         `json:"sales_kind,omitempty"`
+	AmountInWords              string         `json:"amount_in_words,omitempty"`
+	CreatedAt                  string         `json:"created_at,omitempty"`
+	Services                   []ServiceEntry `json:"services,omitempty"`
+	Extensions                 *Extensions    `json:"extensions,omitempty"`
 }
 
 // ServiceEntry represents a line item on an invoice.
@@ -137,8 +136,8 @@ type invoiceRoot struct {
 }
 
 type invoiceListRoot struct {
-	MetaInfo MetaInfo   `json:"metainfo"`
-	Entities []Invoice  `json:"entities"`
+	MetaInfo MetaInfo  `json:"metainfo"`
+	Entities []Invoice `json:"entities"`
 }
 
 // List returns a list of invoices.
@@ -160,7 +159,7 @@ func (s *InvoiceService) List(ctx context.Context, opts *InvoiceListOptions) ([]
 	}
 
 	var root invoiceListRoot
-	_, err = s.client.do(req, &root)
+	err = s.client.do(req, &root)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -178,7 +177,7 @@ func (s *InvoiceService) Get(ctx context.Context, id int64) (*Invoice, error) {
 	}
 
 	var invoice Invoice
-	_, err = s.client.do(req, &invoice)
+	err = s.client.do(req, &invoice)
 	if err != nil {
 		return nil, err
 	}
@@ -197,7 +196,7 @@ func (s *InvoiceService) Create(ctx context.Context, invoice *Invoice) (*Invoice
 	}
 
 	var created Invoice
-	_, err = s.client.do(req, &created)
+	err = s.client.do(req, &created)
 	if err != nil {
 		return nil, err
 	}
@@ -216,7 +215,7 @@ func (s *InvoiceService) Update(ctx context.Context, id int64, invoice *Invoice)
 	}
 
 	var updated Invoice
-	_, err = s.client.do(req, &updated)
+	err = s.client.do(req, &updated)
 	if err != nil {
 		return nil, err
 	}
@@ -233,8 +232,7 @@ func (s *InvoiceService) Delete(ctx context.Context, id int64) error {
 		return err
 	}
 
-	_, err = s.client.do(req, nil)
-	return err
+	return s.client.do(req, nil)
 }
 
 // MarkAsPaid marks an invoice as paid.
@@ -251,8 +249,7 @@ func (s *InvoiceService) MarkAsPaid(ctx context.Context, id int64, paidDate stri
 		return err
 	}
 
-	_, err = s.client.do(req, nil)
-	return err
+	return s.client.do(req, nil)
 }
 
 // SendByEmail sends an invoice by email.
@@ -271,8 +268,7 @@ func (s *InvoiceService) SendByEmail(ctx context.Context, id int64, emailTo stri
 		return err
 	}
 
-	_, err = s.client.do(req, nil)
-	return err
+	return s.client.do(req, nil)
 }
 
 // GetPDF returns the PDF content of an invoice.
@@ -284,22 +280,7 @@ func (s *InvoiceService) GetPDF(ctx context.Context, id int64) ([]byte, error) {
 		return nil, err
 	}
 
-	resp, err := s.client.httpClient.Do(req)
-	if err != nil {
-		return nil, fmt.Errorf("infakt: request failed: %w", err)
-	}
-	defer resp.Body.Close()
-
-	if err := checkResponse(resp); err != nil {
-		return nil, err
-	}
-
-	data, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, fmt.Errorf("infakt: failed to read PDF response: %w", err)
-	}
-
-	return data, nil
+	return s.client.doRaw(req)
 }
 
 // NextNumber returns the next available invoice number for the given kind.
@@ -323,7 +304,7 @@ func (s *InvoiceService) GetNextNumber(ctx context.Context, kind string) (string
 	}
 
 	var result NextNumberResponse
-	_, err = s.client.do(req, &result)
+	err = s.client.do(req, &result)
 	if err != nil {
 		return "", err
 	}

@@ -14,9 +14,10 @@ import (
 )
 
 const (
-	defaultBaseURL   = "https://api.infakt.pl"
-	defaultUserAgent = "golang-infakt"
-	apiVersion       = "v3"
+	defaultBaseURL     = "https://api.infakt.pl"
+	defaultUserAgent   = "golang-infakt"
+	defaultHTTPTimeout = 30 * time.Second
+	apiVersion         = "v3"
 
 	defaultRateLimit  = 100 * time.Millisecond
 	maxRetryAfterWait = 60 * time.Second
@@ -68,7 +69,7 @@ func WithUserAgent(userAgent string) Option {
 }
 
 // WithRateLimit sets the minimum interval between API requests.
-// The default is 100ms between requests.
+// The default is 100ms between requests. Set to 0 to disable.
 func WithRateLimit(interval time.Duration) Option {
 	return func(c *Client) {
 		if c.rateLimiter != nil {
@@ -89,7 +90,7 @@ func NewClient(apiKey string, opts ...Option) *Client {
 	c := &Client{
 		baseURL:     baseURL,
 		apiKey:      apiKey,
-		httpClient:  &http.Client{},
+		httpClient:  &http.Client{Timeout: defaultHTTPTimeout},
 		userAgent:   defaultUserAgent,
 		rateLimiter: time.NewTicker(defaultRateLimit),
 	}
@@ -105,6 +106,16 @@ func NewClient(apiKey string, opts ...Option) *Client {
 	c.VatRates = &VatRateService{client: c}
 
 	return c
+}
+
+// Close releases resources associated with the Client.
+// It stops the internal rate limiter ticker. After Close,
+// the Client should not be used.
+func (c *Client) Close() {
+	if c.rateLimiter != nil {
+		c.rateLimiter.Stop()
+		c.rateLimiter = nil
+	}
 }
 
 // newRequest creates an API request.
@@ -143,23 +154,75 @@ func (c *Client) newRequest(ctx context.Context, method, path string, body inter
 	return req, nil
 }
 
-// do sends an API request and decodes the response.
+// do sends an API request and decodes the JSON response into v.
 // It applies rate limiting, handles HTTP 429 (Too Many Requests) responses
 // by waiting for the duration specified in the Retry-After header, and retries
 // on server errors (5xx) with exponential backoff (max 3 attempts).
-func (c *Client) do(req *http.Request, v interface{}) (*http.Response, error) {
+func (c *Client) do(req *http.Request, v interface{}) error {
 	if c.rateLimiter != nil {
 		<-c.rateLimiter.C
 	}
 
+	resp, err := c.executeWithRetry(req)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = resp.Body.Close() }()
+
+	if err := checkResponse(resp); err != nil {
+		return err
+	}
+
+	if v != nil {
+		data, err := io.ReadAll(resp.Body)
+		if err != nil {
+			return fmt.Errorf("infakt: %s %s: failed to read response body: %w",
+				req.Method, req.URL.Path, err)
+		}
+		if err := json.Unmarshal(data, v); err != nil {
+			return fmt.Errorf("infakt: %s %s: failed to decode response: %w",
+				req.Method, req.URL.Path, err)
+		}
+	}
+
+	return nil
+}
+
+// doRaw sends an API request and returns the raw response body bytes.
+// Used for non-JSON responses like PDF downloads.
+func (c *Client) doRaw(req *http.Request) ([]byte, error) {
+	if c.rateLimiter != nil {
+		<-c.rateLimiter.C
+	}
+
+	resp, err := c.executeWithRetry(req)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = resp.Body.Close() }()
+
+	if err := checkResponse(resp); err != nil {
+		return nil, err
+	}
+
+	data, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("infakt: %s %s: failed to read response body: %w",
+			req.Method, req.URL.Path, err)
+	}
+
+	return data, nil
+}
+
+// executeWithRetry performs the HTTP request with retry logic for 429 and 5xx.
+func (c *Client) executeWithRetry(req *http.Request) (*http.Response, error) {
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("infakt: %s %s: request failed: %w",
 			req.Method, req.URL.Path, err)
 	}
-	defer resp.Body.Close()
 
-	// Handle rate limiting (HTTP 429)
+	// Handle rate limiting (HTTP 429) — single retry
 	if resp.StatusCode == http.StatusTooManyRequests {
 		wait := parseRetryAfter(resp.Header.Get("Retry-After"))
 		if wait > maxRetryAfterWait {
@@ -169,17 +232,16 @@ func (c *Client) do(req *http.Request, v interface{}) (*http.Response, error) {
 		select {
 		case <-time.After(wait):
 		case <-req.Context().Done():
-			return resp, req.Context().Err()
+			_ = resp.Body.Close()
+			return nil, req.Context().Err()
 		}
 
-		// Retry the request
-		resp.Body.Close()
+		_ = resp.Body.Close()
 		resp, err = c.httpClient.Do(req)
 		if err != nil {
 			return nil, fmt.Errorf("infakt: %s %s: retry request failed: %w",
 				req.Method, req.URL.Path, err)
 		}
-		defer resp.Body.Close()
 	}
 
 	// Retry on server errors (5xx) with exponential backoff
@@ -189,38 +251,22 @@ func (c *Client) do(req *http.Request, v interface{}) (*http.Response, error) {
 			select {
 			case <-time.After(wait):
 			case <-req.Context().Done():
-				return resp, req.Context().Err()
+				_ = resp.Body.Close()
+				return nil, req.Context().Err()
 			}
 
-			resp.Body.Close()
+			_ = resp.Body.Close()
 			resp, err = c.httpClient.Do(req)
 			if err != nil {
 				return nil, fmt.Errorf("infakt: %s %s: retry request failed (attempt %d): %w",
 					req.Method, req.URL.Path, attempt+1, err)
 			}
-			defer resp.Body.Close()
 
 			if resp.StatusCode < 500 {
 				break
 			}
 
 			wait *= 2
-		}
-	}
-
-	if err := checkResponse(resp); err != nil {
-		return resp, err
-	}
-
-	if v != nil {
-		data, err := io.ReadAll(resp.Body)
-		if err != nil {
-			return resp, fmt.Errorf("infakt: %s %s: failed to read response body: %w",
-				req.Method, req.URL.Path, err)
-		}
-		if err := json.Unmarshal(data, v); err != nil {
-			return resp, fmt.Errorf("infakt: %s %s: failed to decode response: %w",
-				req.Method, req.URL.Path, err)
 		}
 	}
 

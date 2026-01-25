@@ -18,7 +18,7 @@ func TestInvoiceService_List(t *testing.T) {
 		}
 
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(invoiceListRoot{
+		_ = json.NewEncoder(w).Encode(invoiceListRoot{
 			MetaInfo: MetaInfo{Count: 1, TotalCount: 1},
 			Entities: []Invoice{
 				{ID: 1, Number: "FV/2025/01/001", GrossPrice: 12300},
@@ -51,7 +51,7 @@ func TestInvoiceService_Get(t *testing.T) {
 		}
 
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(Invoice{
+		_ = json.NewEncoder(w).Encode(Invoice{
 			ID:     99,
 			Number: "FV/2025/02/001",
 			Services: []ServiceEntry{
@@ -85,7 +85,7 @@ func TestInvoiceService_Create(t *testing.T) {
 		}
 
 		var root invoiceRoot
-		json.NewDecoder(r.Body).Decode(&root)
+		_ = json.NewDecoder(r.Body).Decode(&root)
 
 		if root.Invoice.ClientID != 42 {
 			t.Errorf("expected ClientID 42, got %d", root.Invoice.ClientID)
@@ -93,7 +93,7 @@ func TestInvoiceService_Create(t *testing.T) {
 
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusCreated)
-		json.NewEncoder(w).Encode(Invoice{
+		_ = json.NewEncoder(w).Encode(Invoice{
 			ID:       200,
 			ClientID: 42,
 			Number:   "FV/2025/03/001",
@@ -126,9 +126,9 @@ func TestInvoiceService_Update(t *testing.T) {
 		}
 
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(Invoice{
-			ID:     99,
-			Notes:  "Updated notes",
+		_ = json.NewEncoder(w).Encode(Invoice{
+			ID:    99,
+			Notes: "Updated notes",
 		})
 	}))
 	defer ts.Close()
@@ -208,7 +208,7 @@ func TestInvoiceService_GetPDF(t *testing.T) {
 			t.Errorf("expected path /v3/invoices/99.pdf, got %s", r.URL.Path)
 		}
 		w.Header().Set("Content-Type", "application/pdf")
-		w.Write(pdfContent)
+		_, _ = w.Write(pdfContent)
 	}))
 	defer ts.Close()
 
@@ -235,7 +235,7 @@ func TestInvoiceService_GetNextNumber(t *testing.T) {
 		}
 
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(NextNumberResponse{
+		_ = json.NewEncoder(w).Encode(NextNumberResponse{
 			NextNumber: "FV/2025/11/002",
 		})
 	}))

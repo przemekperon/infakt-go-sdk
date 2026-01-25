@@ -18,7 +18,7 @@ func TestVatRateService_List(t *testing.T) {
 		}
 
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(vatRateListRoot{
+		_ = json.NewEncoder(w).Encode(vatRateListRoot{
 			MetaInfo: MetaInfo{Count: 3, TotalCount: 3},
 			Entities: []VatRate{
 				{ID: 1, Name: "23%", Rate: "23.0", Symbol: "23"},

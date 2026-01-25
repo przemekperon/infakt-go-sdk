@@ -18,7 +18,7 @@ func TestClientEntityService_List(t *testing.T) {
 		}
 
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(clientEntityListRoot{
+		_ = json.NewEncoder(w).Encode(clientEntityListRoot{
 			MetaInfo: MetaInfo{Count: 2, TotalCount: 2},
 			Entities: []ClientEntity{
 				{ID: 1, CompanyName: "Firma A"},
@@ -52,7 +52,7 @@ func TestClientEntityService_Get(t *testing.T) {
 		}
 
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(ClientEntity{
+		_ = json.NewEncoder(w).Encode(ClientEntity{
 			ID:          42,
 			CompanyName: "Test Corp",
 			NIP:         "1234567890",
@@ -81,7 +81,7 @@ func TestClientEntityService_Create(t *testing.T) {
 		}
 
 		var root clientEntityRoot
-		json.NewDecoder(r.Body).Decode(&root)
+		_ = json.NewDecoder(r.Body).Decode(&root)
 
 		if root.ClientEntity.CompanyName != "New Corp" {
 			t.Errorf("expected CompanyName %q, got %q", "New Corp", root.ClientEntity.CompanyName)
@@ -89,7 +89,7 @@ func TestClientEntityService_Create(t *testing.T) {
 
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusCreated)
-		json.NewEncoder(w).Encode(ClientEntity{
+		_ = json.NewEncoder(w).Encode(ClientEntity{
 			ID:          100,
 			CompanyName: "New Corp",
 		})
@@ -119,7 +119,7 @@ func TestClientEntityService_Update(t *testing.T) {
 		}
 
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(ClientEntity{
+		_ = json.NewEncoder(w).Encode(ClientEntity{
 			ID:          42,
 			CompanyName: "Updated Corp",
 		})
@@ -171,7 +171,7 @@ func TestClientEntityService_ListWithPagination(t *testing.T) {
 		}
 
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(clientEntityListRoot{
+		_ = json.NewEncoder(w).Encode(clientEntityListRoot{
 			MetaInfo: MetaInfo{Count: 5, TotalCount: 20},
 			Entities: []ClientEntity{
 				{ID: 11, CompanyName: "Firma K"},

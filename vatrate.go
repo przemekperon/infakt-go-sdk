@@ -45,7 +45,7 @@ func (s *VatRateService) List(ctx context.Context, opts *ListOptions) ([]VatRate
 	}
 
 	var root vatRateListRoot
-	_, err = s.client.do(req, &root)
+	err = s.client.do(req, &root)
 	if err != nil {
 		return nil, nil, err
 	}
