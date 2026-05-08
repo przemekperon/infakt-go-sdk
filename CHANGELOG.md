@@ -5,6 +5,30 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.1] - 2026-05-08
+
+### Added
+
+- `CONTRIBUTING.md` with local development, testing, and PR workflow.
+- `SECURITY.md` with responsible-disclosure policy and API-key handling guidance.
+- `examples/` directory with four runnable programs: `quickstart`, `pagination`, `pdf-export`, `error-handling`, plus index `examples/README.md`.
+- 22 new runnable Examples in `example_test.go` (29 total, all with `// Output:` and verified by `go test`), backed by an `httptest`-based mock helper.
+- Field-level godoc on `Invoice`, `ServiceEntry`, `ClientEntity`, `Product`, `BankAccount`, `VatRate`, and `ErrorResponse` (semantic explanations: ISO 4217 currency, grosze monetary fields, `YYYY-MM-DD` date format, IBAN, Polish NIP/PKWiU/MPP, etc.).
+- Service-level godoc on every `*Service` with supported endpoints and links to https://docs.infakt.pl.
+- Godoc on previously undocumented `InvoiceRequest` and `ServiceEntryRequest` types.
+- Field-level comments on `Client.Invoices`, `Client.Clients`, `Client.Products`, `Client.BankAccounts`, `Client.VatRates`.
+
+### Changed
+
+- `doc.go` expanded with new sections: `Stability and Versioning`, `Context and Cancellation`, `Retries`, `Documentation and References` (link to https://docs.infakt.pl).
+- `README.md` extended with `Requirements`, `Documentation`, `Versioning`, `Context Support`, `Testing`, `Contributing`, and `Security` sections; configuration and error-handling sections slimmed to point at `pkg.go.dev` for the full reference.
+- Adopted Go 1.19+ doc-link syntax (`[Name]`) across the package for cross-references between types, methods, sentinel errors, and stdlib symbols.
+- Documented concurrency guarantees on `Client` and clarified `NewClient` defaults.
+
+### Notes
+
+- No public API changes; this release is documentation-only.
+
 ## [0.1.0] - 2026-01-11
 
 ### Added
@@ -27,4 +51,5 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Comprehensive package documentation and runnable examples
 - GitHub Actions CI with Go 1.22/1.23 matrix testing and golangci-lint
 
+[0.1.1]: https://github.com/przemekperon/infakt-go-sdk/releases/tag/v0.1.1
 [0.1.0]: https://github.com/przemekperon/infakt-go-sdk/releases/tag/v0.1.0

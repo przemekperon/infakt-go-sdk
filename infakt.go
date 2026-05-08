@@ -26,6 +26,16 @@ const (
 )
 
 // Client manages communication with the inFakt API.
+//
+// A Client is safe for concurrent use across goroutines once it has been
+// constructed by [NewClient]. The provided service fields ([Client.Invoices],
+// [Client.Clients], [Client.Products], [Client.BankAccounts],
+// [Client.VatRates]) may be invoked from multiple goroutines simultaneously;
+// requests are serialized only by the optional rate limiter.
+//
+// [Client.Close] is NOT safe to call concurrently with other Client methods.
+// It should only be called when no requests are in flight, typically via
+// `defer client.Close()` after construction.
 type Client struct {
 	baseURL    *url.URL
 	apiKey     string
@@ -34,17 +44,36 @@ type Client struct {
 
 	rateLimiter *time.Ticker
 
-	Invoices     *InvoiceService
-	Clients      *ClientEntityService
-	Products     *ProductService
+	// Invoices provides access to invoice-related endpoints.
+	// See [InvoiceService].
+	Invoices *InvoiceService
+	// Clients provides access to client-entity (kontrahent) endpoints.
+	// See [ClientEntityService].
+	Clients *ClientEntityService
+	// Products provides access to product-catalog endpoints.
+	// See [ProductService].
+	Products *ProductService
+	// BankAccounts provides read-only access to bank-account endpoints.
+	// See [BankAccountService].
 	BankAccounts *BankAccountService
-	VatRates     *VatRateService
+	// VatRates provides read-only access to VAT-rate endpoints.
+	// See [VatRateService].
+	VatRates *VatRateService
 }
 
-// Option is a functional option for configuring the Client.
+// Option is a functional option for configuring the [Client]. Options are
+// applied in order by [NewClient]; later options can override earlier ones.
+// Built-in options include [WithBaseURL], [WithHTTPClient], [WithUserAgent]
+// and [WithRateLimit].
 type Option func(*Client)
 
-// WithBaseURL sets a custom base URL for the API.
+// WithBaseURL sets a custom base URL for the API and returns an [Option] that
+// can be passed to [NewClient]. This is most commonly used to point the
+// [Client] at a mock or staging server during tests; production code should
+// rely on the default URL ("https://api.infakt.pl").
+//
+// If baseURL fails to parse, the existing default is preserved. Pair with
+// [WithHTTPClient] to fully customize transport behavior.
 func WithBaseURL(baseURL string) Option {
 	return func(c *Client) {
 		u, err := url.Parse(baseURL)
@@ -54,22 +83,33 @@ func WithBaseURL(baseURL string) Option {
 	}
 }
 
-// WithHTTPClient sets a custom HTTP client.
+// WithHTTPClient sets a custom *http.Client used by the [Client] for all
+// outbound requests, and returns an [Option] for [NewClient]. Use this to
+// inject custom transports (e.g. for tracing or proxying) or to override the
+// default 30-second timeout. Combine with [WithBaseURL] when you need both
+// transport-level and URL-level customization.
 func WithHTTPClient(httpClient *http.Client) Option {
 	return func(c *Client) {
 		c.httpClient = httpClient
 	}
 }
 
-// WithUserAgent sets a custom User-Agent header.
+// WithUserAgent sets a custom User-Agent header sent with every request and
+// returns an [Option] for [NewClient]. The default is "infakt-go-sdk"; setting
+// a project-specific value (e.g. "my-app/1.0") helps the inFakt operators
+// identify traffic from your integration. See also [WithHTTPClient] and
+// [WithRateLimit].
 func WithUserAgent(userAgent string) Option {
 	return func(c *Client) {
 		c.userAgent = userAgent
 	}
 }
 
-// WithRateLimit sets the minimum interval between API requests.
-// The default is 100ms between requests. Set to 0 to disable.
+// WithRateLimit sets the minimum interval between API requests issued by the
+// [Client] and returns an [Option] for [NewClient]. The default is 100ms
+// between requests. Pass zero (or any non-positive duration) to disable rate
+// limiting entirely — convenient for tests using [WithBaseURL] against a
+// local mock server. See also [WithHTTPClient].
 func WithRateLimit(interval time.Duration) Option {
 	return func(c *Client) {
 		if c.rateLimiter != nil {
@@ -84,6 +124,21 @@ func WithRateLimit(interval time.Duration) Option {
 }
 
 // NewClient creates a new inFakt API client.
+//
+// The apiKey argument is required; it is sent on every request via the
+// X-inFakt-ApiKey header. The key is NOT validated locally — an invalid or
+// empty key is only detected by the server on the first request, which will
+// return [ErrUnauthorized].
+//
+// Defaults applied before opts run:
+//   - base URL:     https://api.infakt.pl (override with [WithBaseURL])
+//   - HTTP timeout: 30 seconds            (override with [WithHTTPClient])
+//   - User-Agent:   "infakt-go-sdk"       (override with [WithUserAgent])
+//   - rate limit:   100ms between calls   (override with [WithRateLimit])
+//
+// Each opt is applied in order and may override any default. The returned
+// [Client] is ready for concurrent use; call [Client.Close] when done to
+// release the rate-limiter ticker.
 func NewClient(apiKey string, opts ...Option) *Client {
 	baseURL, _ := url.Parse(defaultBaseURL)
 

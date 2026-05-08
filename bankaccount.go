@@ -8,17 +8,32 @@ import (
 
 // BankAccount represents a bank account in the inFakt system.
 type BankAccount struct {
-	ID            int64  `json:"id,omitempty"`
-	BankName      string `json:"bank_name,omitempty"`
+	ID       int64  `json:"id,omitempty"`
+	BankName string `json:"bank_name,omitempty"`
+	// AccountNumber is the bank account number. For Polish accounts it is
+	// in IBAN format (26 digits, no spaces).
 	AccountNumber string `json:"account_number,omitempty"`
-	Swift         string `json:"swift,omitempty"`
-	Currency      string `json:"currency,omitempty"`
-	Default       bool   `json:"default,omitempty"`
-	CustomName    string `json:"custom_name,omitempty"`
+	// Swift is the BIC/SWIFT code used for international transfers.
+	Swift string `json:"swift,omitempty"`
+	// Currency is the ISO 4217 currency code of the account
+	// (e.g., "PLN", "EUR").
+	Currency string `json:"currency,omitempty"`
+	// Default, when true, marks this account as the default to use on new
+	// invoices.
+	Default bool `json:"default,omitempty"`
+	// CustomName is an optional user-provided alias for the account.
+	CustomName string `json:"custom_name,omitempty"`
 }
 
-// BankAccountService handles communication with the bank account related
-// methods of the inFakt API. Bank accounts are read-only.
+// BankAccountService manages bank accounts on the inFakt API. Bank
+// accounts are read-only.
+//
+// Supported endpoints:
+//   - List
+//
+// Access it through [Client.BankAccounts].
+//
+// See https://docs.infakt.pl for the corresponding API reference.
 type BankAccountService struct {
 	client *Client
 }
@@ -28,7 +43,8 @@ type bankAccountListRoot struct {
 	Entities []BankAccount `json:"entities"`
 }
 
-// List returns a list of bank accounts.
+// List returns bank accounts, paginated via [ListOptions]. The returned
+// [MetaInfo] reports the total count and pagination cursors.
 func (s *BankAccountService) List(ctx context.Context, opts *ListOptions) ([]BankAccount, *MetaInfo, error) {
 	path := fmt.Sprintf("/%s/bank_accounts.json", apiVersion)
 

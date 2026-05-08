@@ -14,16 +14,28 @@ Go client library for the [inFakt API v3](https://www.infakt.pl/) — a Polish i
 - Read-only access to bank accounts and VAT rates
 - Invoice actions: mark as paid, send by email, download PDF, get next number
 - Built-in rate limiting with HTTP 429 retry handling
+- Automatic retry on 5xx with exponential backoff
 - Query filtering for list operations
 - Pagination support
 - Zero external dependencies (pure stdlib)
 - Idiomatic Go error handling with sentinel errors
+
+## Requirements
+
+- Go 1.19+ (the package documentation uses `# Heading` godoc syntax introduced in Go 1.19)
+- Module path: `github.com/przemekperon/infakt-go-sdk`
+- Zero external runtime dependencies — only the Go standard library
 
 ## Installation
 
 ```bash
 go get github.com/przemekperon/infakt-go-sdk
 ```
+
+## Documentation
+
+- API reference for this SDK on [pkg.go.dev](https://pkg.go.dev/github.com/przemekperon/infakt-go-sdk)
+- Official inFakt API reference: <https://docs.infakt.pl>
 
 ## Quick Start
 
@@ -40,6 +52,7 @@ import (
 
 func main() {
     client := infakt.NewClient("your-api-key")
+    defer client.Close()
     ctx := context.Background()
 
     // List invoices
@@ -89,22 +102,17 @@ func main() {
 
 ## Configuration
 
+Functional options on `NewClient` cover the common knobs:
+
 ```go
-// Custom HTTP client
 client := infakt.NewClient("key",
     infakt.WithHTTPClient(&http.Client{Timeout: 30 * time.Second}),
-)
-
-// Custom rate limiting
-client := infakt.NewClient("key",
     infakt.WithRateLimit(200 * time.Millisecond),
-)
-
-// Custom User-Agent
-client := infakt.NewClient("key",
     infakt.WithUserAgent("my-app/1.0"),
 )
 ```
+
+See [pkg.go.dev](https://pkg.go.dev/github.com/przemekperon/infakt-go-sdk#Option) for the full list of options and their defaults.
 
 ## Resources
 
@@ -118,23 +126,21 @@ client := infakt.NewClient("key",
 
 ## Error Handling
 
-```go
-import "errors"
+Use sentinel errors with `errors.Is`, or `errors.As` to inspect the full response:
 
-// Sentinel errors
+```go
 _, err := client.Invoices.Get(ctx, 999)
 if errors.Is(err, infakt.ErrNotFound) {
-    fmt.Println("Invoice not found")
+    // handle 404
 }
 
-// Detailed error info
 var apiErr *infakt.ErrorResponse
 if errors.As(err, &apiErr) {
     fmt.Printf("Status: %d, Message: %s\n", apiErr.StatusCode, apiErr.Message)
 }
 ```
 
-Available sentinel errors: `ErrNotFound`, `ErrUnauthorized`, `ErrForbidden`, `ErrRateLimited`.
+Sentinel errors: `ErrNotFound`, `ErrUnauthorized`, `ErrForbidden`, `ErrRateLimited`. See [pkg.go.dev](https://pkg.go.dev/github.com/przemekperon/infakt-go-sdk#pkg-variables) for details.
 
 ## Filtering
 
@@ -151,6 +157,38 @@ clients, _, _ := client.Clients.List(ctx, &infakt.ClientEntityListOptions{
     CompanyName: "ACME",
 })
 ```
+
+## Context Support
+
+Every service method takes a `context.Context` as its first argument. Cancelling the context — or letting its deadline expire — aborts the in-flight HTTP request and any pending retry wait, and returns the context error to the caller. This is the recommended way to apply per-call timeouts on top of the HTTP client's own timeout.
+
+## Versioning
+
+This module follows [Semantic Versioning](https://semver.org/). While the major version is `0` (v0.x), the public API may change in backwards-incompatible ways between minor releases. Pin a specific version in your `go.mod` and consult [CHANGELOG.md](CHANGELOG.md) before upgrading.
+
+## Testing
+
+Run unit tests and runnable examples (which use `httptest.NewServer`, no real API):
+
+```bash
+go test ./...
+```
+
+The repository also contains `_live_test.go`, a manual smoke-test program excluded from normal builds with the `//go:build ignore` constraint. It expects the API key in the `INFAKT_KEY` environment variable and is intended to be run directly against the live inFakt API, e.g.:
+
+```bash
+INFAKT_KEY=... go run _live_test.go
+```
+
+Do not run live tests against production data without understanding the side effects.
+
+## Contributing
+
+Contributions are welcome. See [CONTRIBUTING.md](CONTRIBUTING.md) for the development workflow, coding style, and PR checklist.
+
+## Security
+
+To report a security issue, see [SECURITY.md](SECURITY.md).
 
 ## License
 
