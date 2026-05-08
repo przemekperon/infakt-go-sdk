@@ -16,16 +16,32 @@ import (
 //
 //	if errors.Is(err, infakt.ErrNotFound) { ... }
 var (
-	// ErrNotFound is returned when a resource is not found (HTTP 404).
-	ErrNotFound = errors.New("infakt: resource not found")
+	// ErrBadRequest is returned when the request is malformed (HTTP 400).
+	ErrBadRequest = errors.New("infakt: bad request")
 
 	// ErrUnauthorized is returned when the API key is invalid (HTTP 401).
 	ErrUnauthorized = errors.New("infakt: unauthorized, check your API key")
 
+	// ErrPaymentRequired is returned when the account plan limit has been
+	// reached and an upgrade is required (HTTP 402).
+	ErrPaymentRequired = errors.New("infakt: payment required (plan limit reached)")
+
 	// ErrForbidden is returned when access is denied (HTTP 403).
 	ErrForbidden = errors.New("infakt: forbidden")
 
-	// ErrRateLimited is returned when the API rate limit is exceeded (HTTP 429).
+	// ErrNotFound is returned when a resource is not found (HTTP 404).
+	ErrNotFound = errors.New("infakt: resource not found")
+
+	// ErrUnprocessableEntity is returned when the request payload fails
+	// server-side validation (HTTP 422).
+	ErrUnprocessableEntity = errors.New("infakt: unprocessable entity")
+
+	// ErrLocked is returned when the resource is temporarily locked
+	// (HTTP 423).
+	ErrLocked = errors.New("infakt: resource locked")
+
+	// ErrRateLimited is returned when the API rate limit is exceeded
+	// (HTTP 429) or the IP-level limit triggers HTTP 503.
 	ErrRateLimited = errors.New("infakt: rate limit exceeded")
 )
 
@@ -38,8 +54,9 @@ type ErrorResponse struct {
 	// StatusCode is the HTTP status code that triggered the error.
 	StatusCode int `json:"status_code"`
 	// Message is the server-provided error message, if any; otherwise a
-	// synthesized description derived from the HTTP status text.
-	Message string `json:"message"`
+	// synthesized description derived from the HTTP status text. The
+	// inFakt API returns the message in a JSON field named "error".
+	Message string `json:"error"`
 	// Method is the HTTP method (GET, POST, ...) of the failing request.
 	Method string `json:"-"`
 	// Endpoint is the request path of the failing request, included in
@@ -60,19 +77,31 @@ func (e *ErrorResponse) Error() string {
 // one of the package sentinel errors when compared with [errors.Is]. It maps
 // the HTTP [ErrorResponse.StatusCode] to the matching sentinel:
 //
-//   - 404 -> [ErrNotFound]
+//   - 400 -> [ErrBadRequest]
 //   - 401 -> [ErrUnauthorized]
+//   - 402 -> [ErrPaymentRequired]
 //   - 403 -> [ErrForbidden]
-//   - 429 -> [ErrRateLimited]
+//   - 404 -> [ErrNotFound]
+//   - 422 -> [ErrUnprocessableEntity]
+//   - 423 -> [ErrLocked]
+//   - 429, 503 -> [ErrRateLimited]
 func (e *ErrorResponse) Is(target error) bool {
 	switch e.StatusCode {
-	case http.StatusNotFound:
-		return target == ErrNotFound
+	case http.StatusBadRequest:
+		return target == ErrBadRequest
 	case http.StatusUnauthorized:
 		return target == ErrUnauthorized
+	case http.StatusPaymentRequired:
+		return target == ErrPaymentRequired
 	case http.StatusForbidden:
 		return target == ErrForbidden
-	case http.StatusTooManyRequests:
+	case http.StatusNotFound:
+		return target == ErrNotFound
+	case http.StatusUnprocessableEntity:
+		return target == ErrUnprocessableEntity
+	case http.StatusLocked:
+		return target == ErrLocked
+	case http.StatusTooManyRequests, http.StatusServiceUnavailable:
 		return target == ErrRateLimited
 	}
 	return false
@@ -97,15 +126,20 @@ func checkResponse(r *http.Response) error {
 
 	data, err := io.ReadAll(r.Body)
 	if err == nil && len(data) > 0 {
+		// inFakt returns errors as {"error":"..."} per https://docs.infakt.pl
+		// (sekcja "Kody błędów"). Older snapshots and some 5xx fronting
+		// proxies use {"message":"..."}; accept both for forward and
+		// backward compatibility.
 		var apiErr struct {
-			Message string `json:"message"`
 			Error   string `json:"error"`
+			Message string `json:"message"`
 		}
 		if json.Unmarshal(data, &apiErr) == nil {
-			if apiErr.Message != "" {
-				errResp.Message = apiErr.Message
-			} else if apiErr.Error != "" {
+			switch {
+			case apiErr.Error != "":
 				errResp.Message = apiErr.Error
+			case apiErr.Message != "":
+				errResp.Message = apiErr.Message
 			}
 		}
 	}

@@ -23,10 +23,15 @@ func TestErrorResponse_Is(t *testing.T) {
 		target     error
 		want       bool
 	}{
-		{"404 is ErrNotFound", 404, ErrNotFound, true},
+		{"400 is ErrBadRequest", 400, ErrBadRequest, true},
 		{"401 is ErrUnauthorized", 401, ErrUnauthorized, true},
+		{"402 is ErrPaymentRequired", 402, ErrPaymentRequired, true},
 		{"403 is ErrForbidden", 403, ErrForbidden, true},
+		{"404 is ErrNotFound", 404, ErrNotFound, true},
+		{"422 is ErrUnprocessableEntity", 422, ErrUnprocessableEntity, true},
+		{"423 is ErrLocked", 423, ErrLocked, true},
 		{"429 is ErrRateLimited", 429, ErrRateLimited, true},
+		{"503 is ErrRateLimited", 503, ErrRateLimited, true},
 		{"404 is not ErrUnauthorized", 404, ErrUnauthorized, false},
 		{"500 is not ErrNotFound", 500, ErrNotFound, false},
 	}
@@ -45,7 +50,7 @@ func TestErrorResponse_As(t *testing.T) {
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusNotFound)
-		_, _ = w.Write([]byte(`{"message":"invoice not found"}`))
+		_, _ = w.Write([]byte(`{"error":"invoice not found"}`))
 	}))
 	defer ts.Close()
 

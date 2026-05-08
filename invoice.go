@@ -13,6 +13,10 @@ import (
 // [Invoice.PaidPrice], [Invoice.LeftToPay]) are expressed in grosze (1/100 PLN);
 // for example 12345 represents 123.45 PLN. Date fields are formatted as
 // YYYY-MM-DD strings.
+//
+// Per-invoice operations on this resource (Get, Update, Delete, MarkAsPaid,
+// SendByEmail, GetPDF) address the invoice by [Invoice.UUID] — the integer
+// [Invoice.ID] is informational and is not accepted by the API in URL paths.
 type Invoice struct {
 	ID       int64  `json:"id,omitempty"`
 	UUID     string `json:"uuid,omitempty"`
@@ -30,9 +34,10 @@ type Invoice struct {
 	// PaymentMethod identifies how the invoice should be paid
 	// (e.g., "transfer", "cash", "card"). See https://docs.infakt.pl.
 	PaymentMethod string `json:"payment_method,omitempty"`
-	// SplitPayment, when true, enables the Polish split-payment mechanism
-	// (mechanizm podzielonej płatności).
-	SplitPayment       bool   `json:"split_payment,omitempty"`
+	// SplitPaymentType enables the Polish split-payment mechanism
+	// (mechanizm podzielonej płatności). Allowed values per the API are
+	// "required" and "optional"; an empty string omits the field.
+	SplitPaymentType   string `json:"split_payment_type,omitempty"`
 	RecipientSignature string `json:"recipient_signature,omitempty"`
 	SellerSignature    string `json:"seller_signature,omitempty"`
 	// InvoiceDate is the issue date, formatted as YYYY-MM-DD.
@@ -72,14 +77,35 @@ type Invoice struct {
 	Swift                      string `json:"swift,omitempty"`
 	SaleType                   string `json:"sale_type,omitempty"`
 	InvoiceDateKind            string `json:"invoice_date_kind,omitempty"`
-	VatExemptionReason         string `json:"vat_exemption_reason,omitempty"`
-	SalesKind                  string `json:"sales_kind,omitempty"`
-	AmountInWords              string `json:"amount_in_words,omitempty"`
-	CreatedAt                  string `json:"created_at,omitempty"`
+	// VatExemptionReason is the integer code identifying the legal basis
+	// for VAT exemption; see https://docs.infakt.pl for the catalog.
+	VatExemptionReason int    `json:"vat_exemption_reason,omitempty"`
+	SalesKind          string `json:"sales_kind,omitempty"`
+	AmountInWords      string `json:"amount_in_words,omitempty"`
+	CreatedAt          string `json:"created_at,omitempty"`
+	// ContinuousServiceStartOn marks the start date of a continuous
+	// service period (YYYY-MM-DD).
+	ContinuousServiceStartOn string `json:"continuous_service_start_on,omitempty"`
+	// ContinuousServiceEndOn marks the end date of a continuous service
+	// period (YYYY-MM-DD).
+	ContinuousServiceEndOn string `json:"continuous_service_end_on,omitempty"`
+	// BDOCode is the BDO registry number.
+	BDOCode string `json:"bdo_code,omitempty"`
+	// DocumentMarkingsIDs references markings (oznaczenia dokumentów) by
+	// ID, used for JPK_V7 reporting.
+	DocumentMarkingsIDs []int64 `json:"document_markings_ids,omitempty"`
+	// ReceiptNumber is the cash-register receipt number associated with
+	// this invoice.
+	ReceiptNumber string `json:"receipt_number,omitempty"`
+	// CheckDuplicateNumber asks the server to validate that the assigned
+	// number is unique. Sent only on Create/Update.
+	CheckDuplicateNumber bool `json:"check_duplicate_number,omitempty"`
 	// Services is the list of line items on the invoice. See [ServiceEntry].
 	Services []ServiceEntry `json:"services,omitempty"`
 	// Extensions carries optional invoice features. See [Extensions].
 	Extensions *Extensions `json:"extensions,omitempty"`
+	// KsefData carries KSeF (Krajowy System e-Faktur) integration metadata.
+	KsefData *KsefData `json:"ksef_data,omitempty"`
 }
 
 // ServiceEntry represents a line item on an invoice.
@@ -93,6 +119,9 @@ type ServiceEntry struct {
 	// TaxSymbol is the VAT rate symbol applied to the line
 	// (e.g., "23", "8", "5", "0", "zw", "np"). See [VatRate.Symbol].
 	TaxSymbol string `json:"tax_symbol,omitempty"`
+	// FlatRateTaxSymbol is the VAT rate symbol used when the seller is on
+	// the Polish flat-rate tax scheme (ryczałt).
+	FlatRateTaxSymbol string `json:"flat_rate_tax_symbol,omitempty"`
 	// Unit is the unit of measure for the line (e.g., "hour", "piece",
 	// "kg"). It is a free-form string as defined by inFakt.
 	Unit string `json:"unit,omitempty"`
@@ -109,14 +138,22 @@ type ServiceEntry struct {
 	// GrossPrice is the line gross total (net + VAT), in grosze (1/100 PLN).
 	GrossPrice int `json:"gross_price,omitempty"`
 	// TaxPrice is the line VAT amount, in grosze (1/100 PLN).
-	TaxPrice int    `json:"tax_price,omitempty"`
-	Symbol   string `json:"symbol,omitempty"`
+	TaxPrice int `json:"tax_price,omitempty"`
 	// PKWiU is the Polish Classification of Products and Services code
 	// (Polska Klasyfikacja Wyrobów i Usług).
 	PKWiU string `json:"pkwiu,omitempty"`
-	// Discount is a discount factor whose encoding is defined by
-	// https://docs.infakt.pl.
-	Discount string `json:"discount,omitempty"`
+	// CN is the Combined Nomenclature code (Nomenklatura Scalona).
+	CN string `json:"cn,omitempty"`
+	// PKOB is the Polish Classification of Construction Objects code.
+	PKOB string `json:"pkob,omitempty"`
+	// GtuID references a GTU marking; see [GtuService] for the catalog.
+	GtuID int64 `json:"gtu_id,omitempty"`
+	// VatDateValue lets the line override the invoice-level VAT recognition
+	// date (YYYY-MM-DD). Empty means "use the invoice default".
+	VatDateValue string `json:"vat_date_value,omitempty"`
+	// Discount is the line-level discount expressed as an integer
+	// percentage (e.g. 10 = 10%).
+	Discount int `json:"discount,omitempty"`
 }
 
 // Extensions represents additional invoice settings.
@@ -127,6 +164,17 @@ type Extensions struct {
 // PaymentOnline represents online payment configuration.
 type PaymentOnline struct {
 	Enabled bool `json:"enabled,omitempty"`
+}
+
+// KsefData carries KSeF (Krajowy System e-Faktur) integration metadata
+// returned by the API for invoices that have been pushed to or pulled from
+// KSeF. Refer to https://docs.infakt.pl ("KSeF") for the per-field
+// semantics; the SDK preserves the raw payload as-is.
+type KsefData struct {
+	Status        string `json:"status,omitempty"`
+	ReferenceNumber string `json:"reference_number,omitempty"`
+	IssueDate     string `json:"issue_date,omitempty"`
+	IssueTime     string `json:"issue_time,omitempty"`
 }
 
 // InvoiceRequest is the partial-update payload for creating and updating
@@ -149,6 +197,11 @@ type InvoiceRequest struct {
 	BankAccount        *string               `json:"bank_account,omitempty"`
 	SaleType           *string               `json:"sale_type,omitempty"`
 	InvoiceDateKind    *string               `json:"invoice_date_kind,omitempty"`
+	SplitPaymentType   *string               `json:"split_payment_type,omitempty"`
+	VatExemptionReason *int                  `json:"vat_exemption_reason,omitempty"`
+	BDOCode            *string               `json:"bdo_code,omitempty"`
+	ReceiptNumber      *string               `json:"receipt_number,omitempty"`
+	CheckDuplicateNumber *bool               `json:"check_duplicate_number,omitempty"`
 	Services           []ServiceEntryRequest `json:"services,omitempty"`
 }
 
@@ -156,16 +209,20 @@ type InvoiceRequest struct {
 // Pointer fields let callers distinguish unset from zero-value: for
 // example, [ServiceEntryRequest.Quantity] of nil means "do not change",
 // while [Float64](0) means "set to zero". Use the helpers [String], [Int],
-// [Bool], and [Float64] from helpers.go to build values.
+// [Int64], [Bool], and [Float64] from helpers.go to build values.
 type ServiceEntryRequest struct {
-	Name         *string  `json:"name,omitempty"`
-	TaxSymbol    *string  `json:"tax_symbol,omitempty"`
-	Unit         *string  `json:"unit,omitempty"`
-	Quantity     *float64 `json:"quantity,omitempty"`
-	UnitNetPrice *int     `json:"unit_net_price,omitempty"`
-	Symbol       *string  `json:"symbol,omitempty"`
-	PKWiU        *string  `json:"pkwiu,omitempty"`
-	Discount     *string  `json:"discount,omitempty"`
+	Name              *string  `json:"name,omitempty"`
+	TaxSymbol         *string  `json:"tax_symbol,omitempty"`
+	FlatRateTaxSymbol *string  `json:"flat_rate_tax_symbol,omitempty"`
+	Unit              *string  `json:"unit,omitempty"`
+	Quantity          *float64 `json:"quantity,omitempty"`
+	UnitNetPrice      *int     `json:"unit_net_price,omitempty"`
+	PKWiU             *string  `json:"pkwiu,omitempty"`
+	CN                *string  `json:"cn,omitempty"`
+	PKOB              *string  `json:"pkob,omitempty"`
+	GtuID             *int64   `json:"gtu_id,omitempty"`
+	VatDateValue      *string  `json:"vat_date_value,omitempty"`
+	Discount          *int     `json:"discount,omitempty"`
 }
 
 // InvoiceListOptions specifies the optional parameters to the
@@ -174,7 +231,8 @@ type ServiceEntryRequest struct {
 // Filters are translated into the inFakt query syntax q[field_op]=value.
 // Common operators include cont (substring match), eq (exact match),
 // gteq (>=), and lteq (<=). The Go fields below map to specific operators
-// internally; see the comments next to each field.
+// internally; see the comments next to each field. Use
+// [ListOptions.Filters] to express predicates not exposed here.
 type InvoiceListOptions struct {
 	ListOptions
 
@@ -185,11 +243,34 @@ type InvoiceListOptions struct {
 	Status   string // q[status_eq]
 }
 
+// PDFDocumentTypeOriginal is the value to pass to [InvoiceService.GetPDF]
+// (and similar endpoints) to request the original copy of an invoice.
+const (
+	PDFDocumentTypeOriginal  = "original"
+	PDFDocumentTypeDuplicate = "duplicate"
+	PDFDocumentTypeCopy      = "copy"
+)
+
+// PDFResponse is the JSON envelope returned by the inFakt PDF endpoint.
+// The actual document is reachable via [PDFResponse.DownloadLink], a
+// short-lived signed URL the caller can hand off to a downloader.
+type PDFResponse struct {
+	// DownloadLink is the (typically time-limited) URL where the PDF can
+	// be retrieved.
+	DownloadLink string `json:"download_link"`
+	// Status is the document generation status (e.g. "ready").
+	Status string `json:"status,omitempty"`
+}
+
 // InvoiceService manages invoices on the inFakt API.
+//
+// Per-invoice operations identify the invoice by [Invoice.UUID] — pass the
+// UUID returned in [Invoice.UUID] from List/Create/Get to subsequent
+// methods.
 //
 // Supported endpoints:
 //   - List, Get, Create, Update, Delete
-//   - MarkAsPaid, SendByEmail, GetPDF, GetNextNumber
+//   - MarkAsPaid (async), SendByEmail, GetPDF, GetNextNumber
 //
 // Access it through [Client.Invoices].
 //
@@ -236,10 +317,10 @@ func (s *InvoiceService) List(ctx context.Context, opts *InvoiceListOptions) ([]
 	return root.Entities, &root.MetaInfo, nil
 }
 
-// Get returns a single [Invoice] by ID. Returns [ErrNotFound] (wrapped in
-// an [*ErrorResponse]) if no invoice exists with that ID.
-func (s *InvoiceService) Get(ctx context.Context, id int64) (*Invoice, error) {
-	path := fmt.Sprintf("/%s/invoices/%d.json", apiVersion, id)
+// Get returns a single [Invoice] by UUID. Returns [ErrNotFound] (wrapped in
+// an [*ErrorResponse]) if no invoice exists with that UUID.
+func (s *InvoiceService) Get(ctx context.Context, uuid string) (*Invoice, error) {
+	path := fmt.Sprintf("/%s/invoices/%s.json", apiVersion, url.PathEscape(uuid))
 
 	req, err := s.client.newRequest(ctx, http.MethodGet, path, nil)
 	if err != nil {
@@ -256,7 +337,7 @@ func (s *InvoiceService) Get(ctx context.Context, id int64) (*Invoice, error) {
 }
 
 // Create creates a new [Invoice] from the supplied prototype and returns
-// the server-assigned record (with ID, number, and computed totals).
+// the server-assigned record (with ID, UUID, number, and computed totals).
 func (s *InvoiceService) Create(ctx context.Context, invoice *Invoice) (*Invoice, error) {
 	path := fmt.Sprintf("/%s/invoices.json", apiVersion)
 
@@ -275,10 +356,10 @@ func (s *InvoiceService) Create(ctx context.Context, invoice *Invoice) (*Invoice
 	return &created, nil
 }
 
-// Update updates an existing [Invoice]. Returns [ErrNotFound] (wrapped in
-// an [*ErrorResponse]) if no invoice exists with that ID.
-func (s *InvoiceService) Update(ctx context.Context, id int64, invoice *Invoice) (*Invoice, error) {
-	path := fmt.Sprintf("/%s/invoices/%d.json", apiVersion, id)
+// Update updates an existing [Invoice] addressed by UUID. Returns
+// [ErrNotFound] (wrapped in an [*ErrorResponse]) if no invoice exists.
+func (s *InvoiceService) Update(ctx context.Context, uuid string, invoice *Invoice) (*Invoice, error) {
+	path := fmt.Sprintf("/%s/invoices/%s.json", apiVersion, url.PathEscape(uuid))
 
 	root := &invoiceRoot{Invoice: *invoice}
 	req, err := s.client.newRequest(ctx, http.MethodPut, path, root)
@@ -295,10 +376,10 @@ func (s *InvoiceService) Update(ctx context.Context, id int64, invoice *Invoice)
 	return &updated, nil
 }
 
-// Delete deletes an [Invoice] by ID. Returns [ErrNotFound] (wrapped in an
-// [*ErrorResponse]) if no invoice exists with that ID.
-func (s *InvoiceService) Delete(ctx context.Context, id int64) error {
-	path := fmt.Sprintf("/%s/invoices/%d.json", apiVersion, id)
+// Delete deletes an [Invoice] addressed by UUID. Returns [ErrNotFound]
+// (wrapped in an [*ErrorResponse]) if no invoice exists.
+func (s *InvoiceService) Delete(ctx context.Context, uuid string) error {
+	path := fmt.Sprintf("/%s/invoices/%s.json", apiVersion, url.PathEscape(uuid))
 
 	req, err := s.client.newRequest(ctx, http.MethodDelete, path, nil)
 	if err != nil {
@@ -308,16 +389,26 @@ func (s *InvoiceService) Delete(ctx context.Context, id int64) error {
 	return s.client.do(req, nil)
 }
 
-// MarkAsPaid marks an [Invoice] as paid. The paidDate argument must be in
-// YYYY-MM-DD format; passing an empty string omits the field from the
-// request, letting the inFakt server use today's date.
-func (s *InvoiceService) MarkAsPaid(ctx context.Context, id int64, paidDate string) error {
-	path := fmt.Sprintf("/%s/invoices/%d/paid.json", apiVersion, id)
+// MarkAsPaid asynchronously marks an [Invoice] as paid via the
+// /async/invoices/{uuid}/paid.json endpoint. The server responds 201 and
+// processes the request in the background; downstream effects (e.g. KSeF
+// notifications) settle within seconds.
+//
+// paidDate must be in YYYY-MM-DD format; passing an empty string omits
+// the field so the server defaults to today's date.
+//
+// Set allowCorrection to true when paying a corrective invoice — the API
+// requires the flag to confirm intent on those documents.
+func (s *InvoiceService) MarkAsPaid(ctx context.Context, uuid, paidDate string, allowCorrection bool) error {
+	path := fmt.Sprintf("/%s/async/invoices/%s/paid.json", apiVersion, url.PathEscape(uuid))
 
-	body := map[string]string{}
+	body := map[string]interface{}{}
 	if paidDate != "" {
 		body["paid_date"] = paidDate
 	}
+	if allowCorrection {
+		body["allow_correction"] = true
+	}
 
 	req, err := s.client.newRequest(ctx, http.MethodPost, path, body)
 	if err != nil {
@@ -327,19 +418,50 @@ func (s *InvoiceService) MarkAsPaid(ctx context.Context, id int64, paidDate stri
 	return s.client.do(req, nil)
 }
 
-// SendByEmail sends an [Invoice] to a recipient by email. The print_type
-// is fixed to "original". When emailTo is empty, the email_to field is
-// omitted from the request and the inFakt server applies its default
-// recipient (typically the stored client email). When non-empty, the
-// supplied address overrides the default.
-func (s *InvoiceService) SendByEmail(ctx context.Context, id int64, emailTo string) error {
-	path := fmt.Sprintf("/%s/invoices/%d/deliver_via_email.json", apiVersion, id)
+// SendByEmailOptions captures the optional parameters of
+// [InvoiceService.SendByEmail]. Each field is optional: zero values cause
+// the SDK to omit the corresponding key and let the inFakt server apply
+// its defaults.
+type SendByEmailOptions struct {
+	// PrintType selects the document variant to attach. Allowed values
+	// per https://docs.infakt.pl: "original", "duplicate", "copy".
+	// Defaults to [PDFDocumentTypeOriginal] when empty.
+	PrintType string
+	// Locale forces the language of the rendered PDF, e.g. "pl" or "en".
+	// Defaults to the account language when empty.
+	Locale string
+	// Recipient overrides the default recipient address (the client's
+	// stored email).
+	Recipient string
+	// SendCopy, when true, asks the server to BCC the issuer.
+	SendCopy bool
+}
+
+// SendByEmail delivers an [Invoice] by email via
+// /invoices/{uuid}/deliver_via_email.json. Pass nil to use server defaults
+// (original PDF, account locale, stored client email).
+func (s *InvoiceService) SendByEmail(ctx context.Context, uuid string, opts *SendByEmailOptions) error {
+	path := fmt.Sprintf("/%s/invoices/%s/deliver_via_email.json", apiVersion, url.PathEscape(uuid))
+
+	if opts == nil {
+		opts = &SendByEmailOptions{}
+	}
+	printType := opts.PrintType
+	if printType == "" {
+		printType = PDFDocumentTypeOriginal
+	}
 
 	body := map[string]interface{}{
-		"print_type": "original",
+		"print_type": printType,
 	}
-	if emailTo != "" {
-		body["email_to"] = emailTo
+	if opts.Locale != "" {
+		body["locale"] = opts.Locale
+	}
+	if opts.Recipient != "" {
+		body["recipient"] = opts.Recipient
+	}
+	if opts.SendCopy {
+		body["send_copy"] = true
 	}
 
 	req, err := s.client.newRequest(ctx, http.MethodPost, path, body)
@@ -350,19 +472,42 @@ func (s *InvoiceService) SendByEmail(ctx context.Context, id int64, emailTo stri
 	return s.client.do(req, nil)
 }
 
-// GetPDF returns the raw PDF bytes for an [Invoice]. The caller is
-// responsible for writing the bytes to disk or streaming them to a
-// client. Returns [ErrNotFound] (wrapped in an [*ErrorResponse]) if no
-// invoice exists with that ID.
-func (s *InvoiceService) GetPDF(ctx context.Context, id int64) ([]byte, error) {
-	path := fmt.Sprintf("/%s/invoices/%d.pdf", apiVersion, id)
+// GetPDF returns the PDF metadata envelope for an [Invoice]. The envelope
+// carries a (typically time-limited) [PDFResponse.DownloadLink] from
+// which the actual PDF can be fetched.
+//
+// documentType selects the variant ("original", "duplicate", "copy"); use
+// the [PDFDocumentTypeOriginal] / [PDFDocumentTypeDuplicate] /
+// [PDFDocumentTypeCopy] constants. locale ("pl", "en", ...) is optional;
+// pass an empty string to use the account default.
+//
+// Returns [ErrNotFound] (wrapped in an [*ErrorResponse]) if no invoice
+// exists with that UUID.
+func (s *InvoiceService) GetPDF(ctx context.Context, uuid, documentType, locale string) (*PDFResponse, error) {
+	path := fmt.Sprintf("/%s/invoices/%s/pdf.json", apiVersion, url.PathEscape(uuid))
+
+	if documentType == "" {
+		documentType = PDFDocumentTypeOriginal
+	}
 
 	req, err := s.client.newRequest(ctx, http.MethodGet, path, nil)
 	if err != nil {
 		return nil, err
 	}
 
-	return s.client.doRaw(req)
+	q := req.URL.Query()
+	q.Set("document_type", documentType)
+	if locale != "" {
+		q.Set("locale", locale)
+	}
+	req.URL.RawQuery = q.Encode()
+
+	var resp PDFResponse
+	if err := s.client.do(req, &resp); err != nil {
+		return nil, err
+	}
+
+	return &resp, nil
 }
 
 // NextNumberResponse is the JSON envelope returned by the next-number

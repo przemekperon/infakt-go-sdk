@@ -201,12 +201,12 @@ func ExampleInvoiceService_List() {
 }
 
 func ExampleInvoiceService_Get() {
-	body := `{"id":7,"number":"FV/7/2026","gross_price":9999,"status":"sent"}`
+	body := `{"id":7,"uuid":"abcdef0123456789","number":"FV/7/2026","gross_price":9999,"status":"sent"}`
 	client, srv := newMockClient(jsonHandler(body))
 	defer srv.Close()
 	defer client.Close()
 
-	inv, err := client.Invoices.Get(context.Background(), 7)
+	inv, err := client.Invoices.Get(context.Background(), "abcdef0123456789")
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -232,12 +232,12 @@ func ExampleInvoiceService_Create() {
 }
 
 func ExampleInvoiceService_Update() {
-	body := `{"id":5,"number":"FV/5/2026","notes":"updated note"}`
+	body := `{"id":5,"uuid":"u-5","number":"FV/5/2026","notes":"updated note"}`
 	client, srv := newMockClient(jsonHandler(body))
 	defer srv.Close()
 	defer client.Close()
 
-	updated, err := client.Invoices.Update(context.Background(), 5, &infakt.Invoice{
+	updated, err := client.Invoices.Update(context.Background(), "u-5", &infakt.Invoice{
 		Notes: "updated note",
 	})
 	if err != nil {
@@ -254,7 +254,7 @@ func ExampleInvoiceService_Delete() {
 	defer srv.Close()
 	defer client.Close()
 
-	if err := client.Invoices.Delete(context.Background(), 5); err != nil {
+	if err := client.Invoices.Delete(context.Background(), "u-5"); err != nil {
 		log.Fatal(err)
 	}
 	fmt.Println("deleted")
@@ -263,12 +263,14 @@ func ExampleInvoiceService_Delete() {
 
 func ExampleInvoiceService_MarkAsPaid() {
 	client, srv := newMockClient(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusOK)
+		w.WriteHeader(http.StatusCreated)
 	}))
 	defer srv.Close()
 	defer client.Close()
 
-	if err := client.Invoices.MarkAsPaid(context.Background(), 5, "2026-05-08"); err != nil {
+	// Last argument toggles allow_correction: pass true when paying a
+	// corrective invoice, false otherwise.
+	if err := client.Invoices.MarkAsPaid(context.Background(), "u-5", "2026-05-08", false); err != nil {
 		log.Fatal(err)
 	}
 	fmt.Println("paid")
@@ -282,7 +284,9 @@ func ExampleInvoiceService_SendByEmail() {
 	defer srv.Close()
 	defer client.Close()
 
-	if err := client.Invoices.SendByEmail(context.Background(), 5, "client@example.com"); err != nil {
+	if err := client.Invoices.SendByEmail(context.Background(), "u-5", &infakt.SendByEmailOptions{
+		Recipient: "client@example.com",
+	}); err != nil {
 		log.Fatal(err)
 	}
 	fmt.Println("sent")
@@ -290,20 +294,17 @@ func ExampleInvoiceService_SendByEmail() {
 }
 
 func ExampleInvoiceService_GetPDF() {
-	pdfBytes := []byte("%PDF-1.4 fake pdf body bytes")
-	client, srv := newMockClient(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/pdf")
-		_, _ = w.Write(pdfBytes)
-	}))
+	body := `{"download_link":"https://files.example/invoice-5.pdf","status":"ready"}`
+	client, srv := newMockClient(jsonHandler(body))
 	defer srv.Close()
 	defer client.Close()
 
-	data, err := client.Invoices.GetPDF(context.Background(), 5)
+	pdf, err := client.Invoices.GetPDF(context.Background(), "u-5", infakt.PDFDocumentTypeOriginal, "pl")
 	if err != nil {
 		log.Fatal(err)
 	}
-	fmt.Printf("got %d bytes\n", len(data))
-	// Output: got 28 bytes
+	fmt.Println(pdf.DownloadLink)
+	// Output: https://files.example/invoice-5.pdf
 }
 
 func ExampleInvoiceService_GetNextNumber() {
@@ -479,13 +480,13 @@ func Example_errorHandling() {
 	handler := func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusNotFound)
-		_, _ = fmt.Fprint(w, `{"message":"invoice not found"}`)
+		_, _ = fmt.Fprint(w, `{"error":"invoice not found"}`)
 	}
 	client, srv := newMockClient(handler)
 	defer srv.Close()
 	defer client.Close()
 
-	_, err := client.Invoices.Get(context.Background(), 999)
+	_, err := client.Invoices.Get(context.Background(), "missing-uuid")
 	if err == nil {
 		log.Fatal("expected error")
 	}

@@ -52,6 +52,13 @@ func TestNewClientWithOptions(t *testing.T) {
 	}
 }
 
+func TestWithSandbox(t *testing.T) {
+	c := NewClient("key", WithSandbox())
+	if c.baseURL.String() != sandboxBaseURL {
+		t.Errorf("expected baseURL %q, got %q", sandboxBaseURL, c.baseURL.String())
+	}
+}
+
 func TestWithRateLimit(t *testing.T) {
 	c := NewClient("key", WithRateLimit(500*time.Millisecond))
 	if c.rateLimiter == nil {
@@ -200,7 +207,7 @@ func TestDo_RetryOnServerError(t *testing.T) {
 func TestErrorResponse_IncludesContext(t *testing.T) {
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusNotFound)
-		_, _ = w.Write([]byte(`{"message":"not found"}`))
+		_, _ = w.Write([]byte(`{"error":"not found"}`))
 	}))
 	defer ts.Close()
 

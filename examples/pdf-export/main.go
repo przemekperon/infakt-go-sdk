@@ -3,18 +3,19 @@
 //
 // Run with:
 //
-//	INFAKT_API_KEY=your-key go run ./examples/pdf-export [invoice-id]
+//	INFAKT_API_KEY=your-key go run ./examples/pdf-export [invoice-uuid]
 //
-// If invoice-id is omitted, the program lists the first invoice in the
-// account and uses its ID.
+// If invoice-uuid is omitted, the program lists the first invoice in the
+// account and uses its UUID.
 package main
 
 import (
 	"context"
 	"fmt"
+	"io"
 	"log"
+	"net/http"
 	"os"
-	"strconv"
 	"time"
 
 	infakt "github.com/przemekperon/infakt-go-sdk"
@@ -33,50 +34,76 @@ func main() {
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
 
-	id, err := resolveInvoiceID(ctx, client)
+	uuid, err := resolveInvoiceUUID(ctx, client)
 	if err != nil {
-		log.Fatalf("resolve invoice id: %v", err)
+		log.Fatalf("resolve invoice uuid: %v", err)
 	}
-	if id == 0 {
+	if uuid == "" {
 		fmt.Println("no invoices available to export — nothing to do.")
 		return
 	}
 
-	fmt.Printf("downloading PDF for invoice %d ...\n", id)
-	pdf, err := client.Invoices.GetPDF(ctx, id)
+	fmt.Printf("requesting PDF for invoice %s ...\n", uuid)
+	pdf, err := client.Invoices.GetPDF(ctx, uuid, infakt.PDFDocumentTypeOriginal, "")
 	if err != nil {
-		log.Fatalf("get pdf for invoice %d: %v", id, err)
+		log.Fatalf("get pdf for invoice %s: %v", uuid, err)
 	}
 
-	path := fmt.Sprintf("invoice-%d.pdf", id)
-	if err := os.WriteFile(path, pdf, 0o644); err != nil {
-		log.Fatalf("write %s: %v", path, err)
+	if pdf.DownloadLink == "" {
+		log.Fatalf("API returned no download_link for invoice %s", uuid)
 	}
 
-	fmt.Printf("wrote %d bytes to %s\n", len(pdf), path)
+	path := fmt.Sprintf("invoice-%s.pdf", uuid)
+	written, err := downloadTo(ctx, pdf.DownloadLink, path)
+	if err != nil {
+		log.Fatalf("download %s: %v", path, err)
+	}
+
+	fmt.Printf("wrote %d bytes to %s\n", written, path)
 }
 
-// resolveInvoiceID returns the invoice ID supplied as os.Args[1], or
-// falls back to the first invoice from the account. Returns 0 if the
+// resolveInvoiceUUID returns the invoice UUID supplied as os.Args[1], or
+// falls back to the first invoice from the account. Returns "" if the
 // account has no invoices.
-func resolveInvoiceID(ctx context.Context, client *infakt.Client) (int64, error) {
+func resolveInvoiceUUID(ctx context.Context, client *infakt.Client) (string, error) {
 	if len(os.Args) > 1 && os.Args[1] != "" {
-		id, err := strconv.ParseInt(os.Args[1], 10, 64)
-		if err != nil {
-			return 0, fmt.Errorf("invalid invoice id %q: %w", os.Args[1], err)
-		}
-		return id, nil
+		return os.Args[1], nil
 	}
 
-	fmt.Println("no invoice id supplied; looking up the most recent invoice ...")
+	fmt.Println("no invoice uuid supplied; looking up the most recent invoice ...")
 	invoices, _, err := client.Invoices.List(ctx, &infakt.InvoiceListOptions{
 		ListOptions: infakt.ListOptions{Limit: 1},
 	})
 	if err != nil {
-		return 0, err
+		return "", err
 	}
 	if len(invoices) == 0 {
-		return 0, nil
+		return "", nil
 	}
-	return invoices[0].ID, nil
+	return invoices[0].UUID, nil
+}
+
+// downloadTo streams the contents of url into the file at path.
+func downloadTo(ctx context.Context, url, path string) (int64, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	if err != nil {
+		return 0, err
+	}
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return 0, err
+	}
+	defer func() { _ = resp.Body.Close() }()
+
+	if resp.StatusCode != http.StatusOK {
+		return 0, fmt.Errorf("download returned status %d", resp.StatusCode)
+	}
+
+	f, err := os.Create(path)
+	if err != nil {
+		return 0, err
+	}
+	defer func() { _ = f.Close() }()
+
+	return io.Copy(f, resp.Body)
 }

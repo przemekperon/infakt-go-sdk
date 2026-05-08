@@ -46,7 +46,7 @@ func demoNotFound(client *infakt.Client) {
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
 
-	_, err := client.Invoices.Get(ctx, 1)
+	_, err := client.Invoices.Get(ctx, "non-existent-uuid")
 	switch {
 	case err == nil:
 		fmt.Println("unexpected: invoice id=1 actually exists.")
@@ -65,7 +65,7 @@ func demoTypedError(client *infakt.Client) {
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
 
-	_, err := client.Invoices.Get(ctx, 1)
+	_, err := client.Invoices.Get(ctx, "non-existent-uuid")
 	if err == nil {
 		fmt.Println("unexpected: invoice id=1 actually exists; nothing to introspect.")
 		return

@@ -15,11 +15,16 @@ import (
 
 const (
 	defaultBaseURL     = "https://api.infakt.pl"
+	sandboxBaseURL     = "https://api.sandbox-infakt.pl"
 	defaultUserAgent   = "infakt-go-sdk"
 	defaultHTTPTimeout = 30 * time.Second
 	apiVersion         = "v3"
 
-	defaultRateLimit  = 100 * time.Millisecond
+	// defaultRateLimit paces outgoing requests to stay under the inFakt
+	// IP-level limits documented at https://docs.infakt.pl (sekcja
+	// "Limity"): 300 GETs/min and 150 writes/min. 400ms = 150 req/min
+	// is safe for both classes.
+	defaultRateLimit  = 400 * time.Millisecond
 	maxRetryAfterWait = 60 * time.Second
 	maxServerRetries  = 3
 	initialRetryWait  = 500 * time.Millisecond
@@ -53,12 +58,15 @@ type Client struct {
 	// Products provides access to product-catalog endpoints.
 	// See [ProductService].
 	Products *ProductService
-	// BankAccounts provides read-only access to bank-account endpoints.
+	// BankAccounts provides access to bank-account endpoints.
 	// See [BankAccountService].
 	BankAccounts *BankAccountService
 	// VatRates provides read-only access to VAT-rate endpoints.
 	// See [VatRateService].
 	VatRates *VatRateService
+	// Gtus provides read-only access to GTU (Polish JPK_V7 commodity
+	// group) reference codes. See [GtuService].
+	Gtus *GtuService
 }
 
 // Option is a functional option for configuring the [Client]. Options are
@@ -73,7 +81,9 @@ type Option func(*Client)
 // rely on the default URL ("https://api.infakt.pl").
 //
 // If baseURL fails to parse, the existing default is preserved. Pair with
-// [WithHTTPClient] to fully customize transport behavior.
+// [WithHTTPClient] to fully customize transport behavior. To target the
+// official inFakt sandbox, prefer [WithSandbox] over passing the URL
+// manually.
 func WithBaseURL(baseURL string) Option {
 	return func(c *Client) {
 		u, err := url.Parse(baseURL)
@@ -81,6 +91,16 @@ func WithBaseURL(baseURL string) Option {
 			c.baseURL = u
 		}
 	}
+}
+
+// WithSandbox points the [Client] at the inFakt sandbox environment
+// (https://api.sandbox-infakt.pl) and returns an [Option] for [NewClient].
+// The sandbox accepts the same authentication and resource paths as
+// production but operates on isolated data, making it suitable for
+// integration tests and demos. Equivalent to passing
+// [WithBaseURL]("https://api.sandbox-infakt.pl").
+func WithSandbox() Option {
+	return WithBaseURL(sandboxBaseURL)
 }
 
 // WithHTTPClient sets a custom *http.Client used by the [Client] for all
@@ -106,10 +126,12 @@ func WithUserAgent(userAgent string) Option {
 }
 
 // WithRateLimit sets the minimum interval between API requests issued by the
-// [Client] and returns an [Option] for [NewClient]. The default is 100ms
-// between requests. Pass zero (or any non-positive duration) to disable rate
-// limiting entirely — convenient for tests using [WithBaseURL] against a
-// local mock server. See also [WithHTTPClient].
+// [Client] and returns an [Option] for [NewClient]. The default is 400ms
+// between requests, sized to stay under the documented IP-level limit of
+// 150 writes/min (https://docs.infakt.pl, sekcja "Limity"). Pass zero (or
+// any non-positive duration) to disable rate limiting entirely — convenient
+// for tests using [WithBaseURL] against a local mock server. See also
+// [WithHTTPClient].
 func WithRateLimit(interval time.Duration) Option {
 	return func(c *Client) {
 		if c.rateLimiter != nil {
@@ -131,10 +153,10 @@ func WithRateLimit(interval time.Duration) Option {
 // return [ErrUnauthorized].
 //
 // Defaults applied before opts run:
-//   - base URL:     https://api.infakt.pl (override with [WithBaseURL])
+//   - base URL:     https://api.infakt.pl (override with [WithBaseURL] or [WithSandbox])
 //   - HTTP timeout: 30 seconds            (override with [WithHTTPClient])
 //   - User-Agent:   "infakt-go-sdk"       (override with [WithUserAgent])
-//   - rate limit:   100ms between calls   (override with [WithRateLimit])
+//   - rate limit:   400ms between calls   (override with [WithRateLimit])
 //
 // Each opt is applied in order and may override any default. The returned
 // [Client] is ready for concurrent use; call [Client.Close] when done to
@@ -159,6 +181,7 @@ func NewClient(apiKey string, opts ...Option) *Client {
 	c.Products = &ProductService{client: c}
 	c.BankAccounts = &BankAccountService{client: c}
 	c.VatRates = &VatRateService{client: c}
+	c.Gtus = &GtuService{client: c}
 
 	return c
 }
