@@ -30,7 +30,7 @@ func newMockClient(handler http.HandlerFunc) (*infakt.Client, *httptest.Server) 
 func jsonHandler(body string) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		fmt.Fprint(w, body)
+		_, _ = fmt.Fprint(w, body)
 	}
 }
 
@@ -133,7 +133,7 @@ func ExampleNewClient_withRateLimit() {
 func ExampleNewClient_withUserAgent() {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		fmt.Fprintf(w, `{"next_number":%q}`, r.Header.Get("User-Agent"))
+		_, _ = fmt.Fprintf(w, `{"next_number":%q}`, r.Header.Get("User-Agent"))
 	}))
 	defer srv.Close()
 
@@ -434,18 +434,18 @@ func Example_pagination() {
 		}
 
 		w.Header().Set("Content-Type", "application/json")
-		fmt.Fprint(w, `{"metainfo":{"count":`)
-		fmt.Fprintf(w, "%d", end-offset)
-		fmt.Fprint(w, `,"total_count":`)
-		fmt.Fprintf(w, "%d", len(all))
-		fmt.Fprint(w, `,"next":"","previous":""},"entities":[`)
+		_, _ = fmt.Fprint(w, `{"metainfo":{"count":`)
+		_, _ = fmt.Fprintf(w, "%d", end-offset)
+		_, _ = fmt.Fprint(w, `,"total_count":`)
+		_, _ = fmt.Fprintf(w, "%d", len(all))
+		_, _ = fmt.Fprint(w, `,"next":"","previous":""},"entities":[`)
 		for i := offset; i < end; i++ {
 			if i > offset {
-				fmt.Fprint(w, ",")
+				_, _ = fmt.Fprint(w, ",")
 			}
-			fmt.Fprintf(w, `{"id":%d,"number":%q}`, i+1, all[i])
+			_, _ = fmt.Fprintf(w, `{"id":%d,"number":%q}`, i+1, all[i])
 		}
-		fmt.Fprint(w, `]}`)
+		_, _ = fmt.Fprint(w, `]}`)
 	}
 
 	client, srv := newMockClient(handler)
@@ -479,7 +479,7 @@ func Example_errorHandling() {
 	handler := func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusNotFound)
-		fmt.Fprint(w, `{"message":"invoice not found"}`)
+		_, _ = fmt.Fprint(w, `{"message":"invoice not found"}`)
 	}
 	client, srv := newMockClient(handler)
 	defer srv.Close()
@@ -514,7 +514,7 @@ func Example_contextTimeout() {
 		case <-r.Context().Done():
 		}
 		w.Header().Set("Content-Type", "application/json")
-		fmt.Fprint(w, `{"next_number":"too-late"}`)
+		_, _ = fmt.Fprint(w, `{"next_number":"too-late"}`)
 	}
 	client, srv := newMockClient(handler)
 	defer srv.Close()
