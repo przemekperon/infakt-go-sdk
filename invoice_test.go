@@ -61,7 +61,7 @@ func TestInvoiceService_Get(t *testing.T) {
 			UUID:   testInvoiceUUID,
 			Number: "FV/2025/02/001",
 			Services: []ServiceEntry{
-				{Name: "Consulting", Quantity: 10, UnitNetPrice: 15000, Discount: 5},
+				{Name: "Consulting", Quantity: 10, UnitNetPrice: 15000, Discount: "5.0"},
 			},
 		})
 	}))
@@ -79,8 +79,8 @@ func TestInvoiceService_Get(t *testing.T) {
 	if len(invoice.Services) != 1 {
 		t.Fatalf("expected 1 service, got %d", len(invoice.Services))
 	}
-	if invoice.Services[0].Discount != 5 {
-		t.Errorf("expected Discount 5, got %d", invoice.Services[0].Discount)
+	if invoice.Services[0].Discount != "5.0" {
+		t.Errorf("expected Discount %q, got %q", "5.0", invoice.Services[0].Discount)
 	}
 }
 

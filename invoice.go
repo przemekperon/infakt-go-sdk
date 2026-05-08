@@ -151,9 +151,11 @@ type ServiceEntry struct {
 	// VatDateValue lets the line override the invoice-level VAT recognition
 	// date (YYYY-MM-DD). Empty means "use the invoice default".
 	VatDateValue string `json:"vat_date_value,omitempty"`
-	// Discount is the line-level discount expressed as an integer
-	// percentage (e.g. 10 = 10%).
-	Discount int `json:"discount,omitempty"`
+	// Discount is the line-level discount as returned by the live API
+	// in decimal-string form ("0.0", "10.5"). docs.infakt.pl labels the
+	// field "integer (percent)" but the wire format is a string —
+	// keep the SDK aligned with the actual response.
+	Discount string `json:"discount,omitempty"`
 }
 
 // Extensions represents additional invoice settings.
@@ -171,10 +173,10 @@ type PaymentOnline struct {
 // KSeF. Refer to https://docs.infakt.pl ("KSeF") for the per-field
 // semantics; the SDK preserves the raw payload as-is.
 type KsefData struct {
-	Status        string `json:"status,omitempty"`
+	Status          string `json:"status,omitempty"`
 	ReferenceNumber string `json:"reference_number,omitempty"`
-	IssueDate     string `json:"issue_date,omitempty"`
-	IssueTime     string `json:"issue_time,omitempty"`
+	IssueDate       string `json:"issue_date,omitempty"`
+	IssueTime       string `json:"issue_time,omitempty"`
 }
 
 // InvoiceRequest is the partial-update payload for creating and updating
@@ -184,25 +186,25 @@ type KsefData struct {
 // the helpers [String], [Int], [Int64], [Bool], and [Float64] from
 // helpers.go to build values.
 type InvoiceRequest struct {
-	Currency           *string               `json:"currency,omitempty"`
-	Notes              *string               `json:"notes,omitempty"`
-	Kind               *string               `json:"kind,omitempty"`
-	PaymentMethod      *string               `json:"payment_method,omitempty"`
-	RecipientSignature *string               `json:"recipient_signature,omitempty"`
-	SellerSignature    *string               `json:"seller_signature,omitempty"`
-	InvoiceDate        *string               `json:"invoice_date,omitempty"`
-	SaleDate           *string               `json:"sale_date,omitempty"`
-	PaymentDate        *string               `json:"payment_date,omitempty"`
-	ClientID           *int64                `json:"client_id,omitempty"`
-	BankAccount        *string               `json:"bank_account,omitempty"`
-	SaleType           *string               `json:"sale_type,omitempty"`
-	InvoiceDateKind    *string               `json:"invoice_date_kind,omitempty"`
-	SplitPaymentType   *string               `json:"split_payment_type,omitempty"`
-	VatExemptionReason *int                  `json:"vat_exemption_reason,omitempty"`
-	BDOCode            *string               `json:"bdo_code,omitempty"`
-	ReceiptNumber      *string               `json:"receipt_number,omitempty"`
-	CheckDuplicateNumber *bool               `json:"check_duplicate_number,omitempty"`
-	Services           []ServiceEntryRequest `json:"services,omitempty"`
+	Currency             *string               `json:"currency,omitempty"`
+	Notes                *string               `json:"notes,omitempty"`
+	Kind                 *string               `json:"kind,omitempty"`
+	PaymentMethod        *string               `json:"payment_method,omitempty"`
+	RecipientSignature   *string               `json:"recipient_signature,omitempty"`
+	SellerSignature      *string               `json:"seller_signature,omitempty"`
+	InvoiceDate          *string               `json:"invoice_date,omitempty"`
+	SaleDate             *string               `json:"sale_date,omitempty"`
+	PaymentDate          *string               `json:"payment_date,omitempty"`
+	ClientID             *int64                `json:"client_id,omitempty"`
+	BankAccount          *string               `json:"bank_account,omitempty"`
+	SaleType             *string               `json:"sale_type,omitempty"`
+	InvoiceDateKind      *string               `json:"invoice_date_kind,omitempty"`
+	SplitPaymentType     *string               `json:"split_payment_type,omitempty"`
+	VatExemptionReason   *int                  `json:"vat_exemption_reason,omitempty"`
+	BDOCode              *string               `json:"bdo_code,omitempty"`
+	ReceiptNumber        *string               `json:"receipt_number,omitempty"`
+	CheckDuplicateNumber *bool                 `json:"check_duplicate_number,omitempty"`
+	Services             []ServiceEntryRequest `json:"services,omitempty"`
 }
 
 // ServiceEntryRequest is the partial-update payload for invoice line items.
@@ -222,7 +224,7 @@ type ServiceEntryRequest struct {
 	PKOB              *string  `json:"pkob,omitempty"`
 	GtuID             *int64   `json:"gtu_id,omitempty"`
 	VatDateValue      *string  `json:"vat_date_value,omitempty"`
-	Discount          *int     `json:"discount,omitempty"`
+	Discount          *string  `json:"discount,omitempty"`
 }
 
 // InvoiceListOptions specifies the optional parameters to the

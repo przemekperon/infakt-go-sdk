@@ -11,7 +11,7 @@ Go client library for the [inFakt API v3](https://www.infakt.pl/) — a Polish i
 ## Features
 
 - Full CRUD support for invoices, clients, and products
-- Read-only access to bank accounts and VAT rates
+- Read-only access to bank accounts, VAT rates, GTU codes, and cost invoices (faktury kosztowe)
 - Invoice actions: mark as paid, send by email, download PDF, get next number
 - Built-in rate limiting with HTTP 429 retry handling
 - Automatic retry on 5xx with exponential backoff
@@ -121,8 +121,10 @@ See [pkg.go.dev](https://pkg.go.dev/github.com/przemekperon/infakt-go-sdk#Option
 | Invoices | `client.Invoices` | List, Get, Create, Update, Delete, MarkAsPaid, SendByEmail, GetPDF, GetNextNumber |
 | Clients | `client.Clients` | List, Get, Create, Update, Delete |
 | Products | `client.Products` | List, Get, Create, Update, Delete |
-| Bank Accounts | `client.BankAccounts` | List |
+| Bank Accounts | `client.BankAccounts` | List, Get, Create, Update, Delete |
 | VAT Rates | `client.VatRates` | List |
+| GTU codes | `client.Gtus` | List, Get, ListSelected |
+| Cost Invoices | `client.CostInvoices` | List, Get |
 
 ## Error Handling
 

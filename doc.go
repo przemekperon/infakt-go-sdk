@@ -2,7 +2,8 @@
 //
 // inFakt is a Polish invoicing and accounting service. This package implements
 // a client for the inFakt REST API v3, providing access to invoices, clients,
-// products, bank accounts, and VAT rates.
+// products, bank accounts, VAT rates, GTU reference codes, and cost invoices
+// (faktury kosztowe).
 //
 // # Authentication
 //
@@ -27,6 +28,12 @@
 //
 //	// Get a product
 //	product, err := client.Products.Get(ctx, 42)
+//
+//	// List cost invoices (faktury kosztowe)
+//	costs, _, err := client.CostInvoices.List(ctx, &infakt.CostInvoiceListOptions{
+//	    DateFrom: "2026-01-01",
+//	    DateTo:   "2026-12-31",
+//	})
 //
 // Call [Client.Close] when the client is no longer needed to release the
 // internal rate-limiter ticker.

@@ -35,8 +35,11 @@ below before upgrading.
   API schema.
 - `Invoice.VatExemptionReason` is now `int` (was `string`).
 - `ServiceEntry.Discount` is now `int` representing percent (was `string`).
-- `ClientEntity.DaysToPayment` and `ClientEntityRequest.DaysToPayment` are
-  now `int` / `*int` (were `string` / `*string`) per the documented type.
+- `ClientEntity.DaysToPayment` and `ClientEntityRequest.DaysToPayment`
+  remain typed as `string` / `*string`. The official docs describe the
+  field as an integer, but the live API returns it as a JSON string
+  (verified against the production endpoint) and the SDK matches the
+  wire format to keep round-trips lossless.
 - `Products.Create` and `Products.Update` now accept `*ProductRequest`
   instead of `*Product`, enabling explicit zero-value writes via pointer
   helpers. `ProductRequest.Description` removed (the field is not part of
@@ -45,6 +48,13 @@ below before upgrading.
 
 ### Added
 
+- **CostInvoices** read-only access to cost invoices (faktury kosztowe)
+  via `Client.CostInvoices`, backed by `GET /v3/documents/costs.json` and
+  `GET /v3/documents/costs/{uuid}.json` per
+  https://github.com/infakt/API/blob/master/readme.md#koszty. Supports
+  paginated listing with `q[issue_date_gteq]` / `q[issue_date_lteq]` /
+  `q[seller_tax_code_eq]` / `q[currency_eq]` filters and per-document
+  fetch by UUID. Requires the `api:costs:read` scope on the API key.
 - **BankAccounts** full CRUD: `Get`, `Create`, `Update`, `Delete` (the API
   exposes `POST/GET/{id}/PUT/DELETE` and the previous "read-only" annotation
   was incorrect). Mutating endpoints require the

@@ -35,8 +35,9 @@ const (
 // A Client is safe for concurrent use across goroutines once it has been
 // constructed by [NewClient]. The provided service fields ([Client.Invoices],
 // [Client.Clients], [Client.Products], [Client.BankAccounts],
-// [Client.VatRates]) may be invoked from multiple goroutines simultaneously;
-// requests are serialized only by the optional rate limiter.
+// [Client.VatRates], [Client.Gtus], [Client.CostInvoices]) may be invoked
+// from multiple goroutines simultaneously; requests are serialized only by
+// the optional rate limiter.
 //
 // [Client.Close] is NOT safe to call concurrently with other Client methods.
 // It should only be called when no requests are in flight, typically via
@@ -67,6 +68,9 @@ type Client struct {
 	// Gtus provides read-only access to GTU (Polish JPK_V7 commodity
 	// group) reference codes. See [GtuService].
 	Gtus *GtuService
+	// CostInvoices provides read-only access to cost-invoice (faktury
+	// kosztowe) endpoints. See [CostInvoiceService].
+	CostInvoices *CostInvoiceService
 }
 
 // Option is a functional option for configuring the [Client]. Options are
@@ -182,6 +186,7 @@ func NewClient(apiKey string, opts ...Option) *Client {
 	c.BankAccounts = &BankAccountService{client: c}
 	c.VatRates = &VatRateService{client: c}
 	c.Gtus = &GtuService{client: c}
+	c.CostInvoices = &CostInvoiceService{client: c}
 
 	return c
 }

@@ -18,8 +18,8 @@ go vet ./...            # static analysis
 ## Architecture
 
 - Single `infakt` package (flat structure, no sub-packages)
-- `Client` struct with service fields (Invoices, Clients, Products, BankAccounts, VatRates)
-- Each resource is a separate `*Service` type with CRUD methods
+- `Client` struct with service fields (Invoices, Clients, Products, BankAccounts, VatRates, Gtus, CostInvoices)
+- Each resource is a separate `*Service` type with CRUD methods (CostInvoices is read-only)
 - All methods accept `context.Context` as first parameter
 - Zero external dependencies (pure stdlib)
 - API authentication via `X-inFakt-ApiKey` header
