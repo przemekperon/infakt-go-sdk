@@ -27,4 +27,4 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Comprehensive package documentation and runnable examples
 - GitHub Actions CI with Go 1.22/1.23 matrix testing and golangci-lint
 
-[0.1.0]: https://github.com/przemekperon/golang-infakt/releases/tag/v0.1.0
+[0.1.0]: https://github.com/przemekperon/infakt-go-sdk/releases/tag/v0.1.0

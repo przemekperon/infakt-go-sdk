@@ -15,7 +15,7 @@ import (
 
 const (
 	defaultBaseURL     = "https://api.infakt.pl"
-	defaultUserAgent   = "golang-infakt"
+	defaultUserAgent   = "infakt-go-sdk"
 	defaultHTTPTimeout = 30 * time.Second
 	apiVersion         = "v3"
 

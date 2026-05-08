@@ -1,3 +1,3 @@
-module github.com/przemekperon/golang-infakt
+module github.com/przemekperon/infakt-go-sdk
 
 go 1.25.7

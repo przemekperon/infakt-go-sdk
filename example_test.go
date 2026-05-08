@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"log"
 
-	infakt "github.com/przemekperon/golang-infakt"
+	infakt "github.com/przemekperon/infakt-go-sdk"
 )
 
 func ExampleNewClient() {
