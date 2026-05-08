@@ -151,9 +151,11 @@ type ServiceEntry struct {
 	// VatDateValue lets the line override the invoice-level VAT recognition
 	// date (YYYY-MM-DD). Empty means "use the invoice default".
 	VatDateValue string `json:"vat_date_value,omitempty"`
-	// Discount is the line-level discount expressed as an integer
-	// percentage (e.g. 10 = 10%).
-	Discount int `json:"discount,omitempty"`
+	// Discount is the line-level discount as returned by the live API
+	// in decimal-string form ("0.0", "10.5"). docs.infakt.pl labels the
+	// field "integer (percent)" but the wire format is a string —
+	// keep the SDK aligned with the actual response.
+	Discount string `json:"discount,omitempty"`
 }
 
 // Extensions represents additional invoice settings.
@@ -222,7 +224,7 @@ type ServiceEntryRequest struct {
 	PKOB              *string  `json:"pkob,omitempty"`
 	GtuID             *int64   `json:"gtu_id,omitempty"`
 	VatDateValue      *string  `json:"vat_date_value,omitempty"`
-	Discount          *int     `json:"discount,omitempty"`
+	Discount          *string  `json:"discount,omitempty"`
 }
 
 // InvoiceListOptions specifies the optional parameters to the
@@ -250,17 +252,6 @@ const (
 	PDFDocumentTypeDuplicate = "duplicate"
 	PDFDocumentTypeCopy      = "copy"
 )
-
-// PDFResponse is the JSON envelope returned by the inFakt PDF endpoint.
-// The actual document is reachable via [PDFResponse.DownloadLink], a
-// short-lived signed URL the caller can hand off to a downloader.
-type PDFResponse struct {
-	// DownloadLink is the (typically time-limited) URL where the PDF can
-	// be retrieved.
-	DownloadLink string `json:"download_link"`
-	// Status is the document generation status (e.g. "ready").
-	Status string `json:"status,omitempty"`
-}
 
 // InvoiceService manages invoices on the inFakt API.
 //
@@ -472,18 +463,20 @@ func (s *InvoiceService) SendByEmail(ctx context.Context, uuid string, opts *Sen
 	return s.client.do(req, nil)
 }
 
-// GetPDF returns the PDF metadata envelope for an [Invoice]. The envelope
-// carries a (typically time-limited) [PDFResponse.DownloadLink] from
-// which the actual PDF can be fetched.
+// GetPDF returns the raw PDF bytes for an [Invoice]. The endpoint name
+// (.json) is misleading: the live API responds with Content-Type
+// application/pdf and the document body inline. Callers are responsible
+// for writing the bytes to disk or streaming them onward.
 //
-// documentType selects the variant ("original", "duplicate", "copy"); use
-// the [PDFDocumentTypeOriginal] / [PDFDocumentTypeDuplicate] /
-// [PDFDocumentTypeCopy] constants. locale ("pl", "en", ...) is optional;
-// pass an empty string to use the account default.
+// documentType is required by the API; use the [PDFDocumentTypeOriginal] /
+// [PDFDocumentTypeDuplicate] / [PDFDocumentTypeCopy] constants. An empty
+// value defaults to [PDFDocumentTypeOriginal]. locale ("pl", "en", ...)
+// is optional; pass an empty string to use the account default.
 //
 // Returns [ErrNotFound] (wrapped in an [*ErrorResponse]) if no invoice
-// exists with that UUID.
-func (s *InvoiceService) GetPDF(ctx context.Context, uuid, documentType, locale string) (*PDFResponse, error) {
+// exists with that UUID, [ErrUnprocessableEntity] for a rejected
+// documentType.
+func (s *InvoiceService) GetPDF(ctx context.Context, uuid, documentType, locale string) ([]byte, error) {
 	path := fmt.Sprintf("/%s/invoices/%s/pdf.json", apiVersion, url.PathEscape(uuid))
 
 	if documentType == "" {
@@ -502,12 +495,7 @@ func (s *InvoiceService) GetPDF(ctx context.Context, uuid, documentType, locale 
 	}
 	req.URL.RawQuery = q.Encode()
 
-	var resp PDFResponse
-	if err := s.client.do(req, &resp); err != nil {
-		return nil, err
-	}
-
-	return &resp, nil
+	return s.client.doRaw(req)
 }
 
 // NextNumberResponse is the JSON envelope returned by the next-number

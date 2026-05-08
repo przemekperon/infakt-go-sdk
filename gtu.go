@@ -12,11 +12,13 @@ import (
 // canonical catalog.
 type Gtu struct {
 	ID int64 `json:"id,omitempty"`
-	// Code is the JPK_V7 marking, e.g. "GTU_01", "GTU_07".
-	Code string `json:"code,omitempty"`
-	// Name is the human-readable label.
+	// Name is the JPK_V7 marking — the live API stores the code itself
+	// in this field (e.g. "GTU_01", "GTU_07").
 	Name string `json:"name,omitempty"`
-	// Description is the long-form description.
+	// ShortDescription is the one-line label (e.g. "Dostawa napojów
+	// alkoholowych").
+	ShortDescription string `json:"short_description,omitempty"`
+	// Description is the long-form regulatory text.
 	Description string `json:"description,omitempty"`
 }
 

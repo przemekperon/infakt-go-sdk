@@ -12,9 +12,7 @@ package main
 import (
 	"context"
 	"fmt"
-	"io"
 	"log"
-	"net/http"
 	"os"
 	"time"
 
@@ -43,23 +41,18 @@ func main() {
 		return
 	}
 
-	fmt.Printf("requesting PDF for invoice %s ...\n", uuid)
+	fmt.Printf("downloading PDF for invoice %s ...\n", uuid)
 	pdf, err := client.Invoices.GetPDF(ctx, uuid, infakt.PDFDocumentTypeOriginal, "")
 	if err != nil {
 		log.Fatalf("get pdf for invoice %s: %v", uuid, err)
 	}
 
-	if pdf.DownloadLink == "" {
-		log.Fatalf("API returned no download_link for invoice %s", uuid)
-	}
-
 	path := fmt.Sprintf("invoice-%s.pdf", uuid)
-	written, err := downloadTo(ctx, pdf.DownloadLink, path)
-	if err != nil {
-		log.Fatalf("download %s: %v", path, err)
+	if err := os.WriteFile(path, pdf, 0o644); err != nil {
+		log.Fatalf("write %s: %v", path, err)
 	}
 
-	fmt.Printf("wrote %d bytes to %s\n", written, path)
+	fmt.Printf("wrote %d bytes to %s\n", len(pdf), path)
 }
 
 // resolveInvoiceUUID returns the invoice UUID supplied as os.Args[1], or
@@ -81,29 +74,4 @@ func resolveInvoiceUUID(ctx context.Context, client *infakt.Client) (string, err
 		return "", nil
 	}
 	return invoices[0].UUID, nil
-}
-
-// downloadTo streams the contents of url into the file at path.
-func downloadTo(ctx context.Context, url, path string) (int64, error) {
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
-	if err != nil {
-		return 0, err
-	}
-	resp, err := http.DefaultClient.Do(req)
-	if err != nil {
-		return 0, err
-	}
-	defer func() { _ = resp.Body.Close() }()
-
-	if resp.StatusCode != http.StatusOK {
-		return 0, fmt.Errorf("download returned status %d", resp.StatusCode)
-	}
-
-	f, err := os.Create(path)
-	if err != nil {
-		return 0, err
-	}
-	defer func() { _ = f.Close() }()
-
-	return io.Copy(f, resp.Body)
 }

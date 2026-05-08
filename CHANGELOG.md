@@ -28,15 +28,14 @@ below before upgrading.
   `SendCopy`. The previous fixed `print_type=original` and `email_to`
   payload key did not match the documented contract (`recipient`).
 - `Invoices.GetPDF` signature changed: now takes `(uuid, documentType, locale)`
-  and returns `*PDFResponse` carrying a `DownloadLink` instead of raw PDF
-  bytes. The previous `/{id}.pdf` endpoint did not exist.
+  and addresses the documented `/invoices/{uuid}/pdf.json` endpoint.
+  Despite the `.json` suffix the response is the raw PDF body
+  (`Content-Type: application/pdf`), so the return type stays `[]byte`
+  but `documentType` is now required (defaults to "original" when empty).
 - `Invoice.SplitPayment bool` removed; replaced by
   `Invoice.SplitPaymentType string` (`"required"` / `"optional"`) per the
   API schema.
 - `Invoice.VatExemptionReason` is now `int` (was `string`).
-- `ServiceEntry.Discount` is now `int` representing percent (was `string`).
-- `ClientEntity.DaysToPayment` and `ClientEntityRequest.DaysToPayment` are
-  now `int` / `*int` (were `string` / `*string`) per the documented type.
 - `Products.Create` and `Products.Update` now accept `*ProductRequest`
   instead of `*Product`, enabling explicit zero-value writes via pointer
   helpers. `ProductRequest.Description` removed (the field is not part of

@@ -294,17 +294,20 @@ func ExampleInvoiceService_SendByEmail() {
 }
 
 func ExampleInvoiceService_GetPDF() {
-	body := `{"download_link":"https://files.example/invoice-5.pdf","status":"ready"}`
-	client, srv := newMockClient(jsonHandler(body))
+	pdfBytes := []byte("%PDF-1.4 fake pdf body bytes")
+	client, srv := newMockClient(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/pdf")
+		_, _ = w.Write(pdfBytes)
+	}))
 	defer srv.Close()
 	defer client.Close()
 
-	pdf, err := client.Invoices.GetPDF(context.Background(), "u-5", infakt.PDFDocumentTypeOriginal, "pl")
+	data, err := client.Invoices.GetPDF(context.Background(), "u-5", infakt.PDFDocumentTypeOriginal, "pl")
 	if err != nil {
 		log.Fatal(err)
 	}
-	fmt.Println(pdf.DownloadLink)
-	// Output: https://files.example/invoice-5.pdf
+	fmt.Printf("got %d bytes\n", len(data))
+	// Output: got 28 bytes
 }
 
 func ExampleInvoiceService_GetNextNumber() {

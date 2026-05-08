@@ -61,7 +61,7 @@ func TestInvoiceService_Get(t *testing.T) {
 			UUID:   testInvoiceUUID,
 			Number: "FV/2025/02/001",
 			Services: []ServiceEntry{
-				{Name: "Consulting", Quantity: 10, UnitNetPrice: 15000, Discount: 5},
+				{Name: "Consulting", Quantity: 10, UnitNetPrice: 15000, Discount: "5.0"},
 			},
 		})
 	}))
@@ -79,8 +79,8 @@ func TestInvoiceService_Get(t *testing.T) {
 	if len(invoice.Services) != 1 {
 		t.Fatalf("expected 1 service, got %d", len(invoice.Services))
 	}
-	if invoice.Services[0].Discount != 5 {
-		t.Errorf("expected Discount 5, got %d", invoice.Services[0].Discount)
+	if invoice.Services[0].Discount != "5.0" {
+		t.Errorf("expected Discount %q, got %q", "5.0", invoice.Services[0].Discount)
 	}
 }
 
@@ -268,6 +268,8 @@ func TestInvoiceService_SendByEmail_Defaults(t *testing.T) {
 }
 
 func TestInvoiceService_GetPDF(t *testing.T) {
+	pdfContent := []byte("%PDF-1.4 fake content")
+
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		expected := "/v3/invoices/" + testInvoiceUUID + "/pdf.json"
 		if r.URL.Path != expected {
@@ -279,11 +281,8 @@ func TestInvoiceService_GetPDF(t *testing.T) {
 		if r.URL.Query().Get("locale") != "en" {
 			t.Errorf("expected locale=en, got %q", r.URL.Query().Get("locale"))
 		}
-		w.Header().Set("Content-Type", "application/json")
-		_ = json.NewEncoder(w).Encode(PDFResponse{
-			DownloadLink: "https://example.test/some/signed.pdf",
-			Status:       "ready",
-		})
+		w.Header().Set("Content-Type", "application/pdf")
+		_, _ = w.Write(pdfContent)
 	}))
 	defer ts.Close()
 
@@ -293,11 +292,8 @@ func TestInvoiceService_GetPDF(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	if pdf.DownloadLink == "" {
-		t.Error("expected DownloadLink populated")
-	}
-	if pdf.Status != "ready" {
-		t.Errorf("expected status=ready, got %q", pdf.Status)
+	if string(pdf) != string(pdfContent) {
+		t.Errorf("expected PDF content %q, got %q", pdfContent, pdf)
 	}
 }
 
@@ -306,8 +302,8 @@ func TestInvoiceService_GetPDF_DefaultsDocumentType(t *testing.T) {
 		if r.URL.Query().Get("document_type") != "original" {
 			t.Errorf("expected default document_type=original, got %q", r.URL.Query().Get("document_type"))
 		}
-		w.Header().Set("Content-Type", "application/json")
-		_ = json.NewEncoder(w).Encode(PDFResponse{DownloadLink: "https://example.test/x.pdf"})
+		w.Header().Set("Content-Type", "application/pdf")
+		_, _ = w.Write([]byte("%PDF-1.4"))
 	}))
 	defer ts.Close()
 

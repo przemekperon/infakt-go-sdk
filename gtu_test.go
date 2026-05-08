@@ -17,8 +17,8 @@ func TestGtuService_List(t *testing.T) {
 		_ = json.NewEncoder(w).Encode(gtuListRoot{
 			MetaInfo: MetaInfo{Count: 2, TotalCount: 2},
 			Entities: []Gtu{
-				{ID: 1, Code: "GTU_01", Name: "Napoje alkoholowe"},
-				{ID: 7, Code: "GTU_07", Name: "Pojazdy"},
+				{ID: 1, Name: "GTU_01", ShortDescription: "Napoje alkoholowe"},
+				{ID: 7, Name: "GTU_07", ShortDescription: "Pojazdy"},
 			},
 		})
 	}))
@@ -35,8 +35,8 @@ func TestGtuService_List(t *testing.T) {
 	if meta.TotalCount != 2 {
 		t.Errorf("expected TotalCount 2, got %d", meta.TotalCount)
 	}
-	if gtus[0].Code != "GTU_01" {
-		t.Errorf("expected Code %q, got %q", "GTU_01", gtus[0].Code)
+	if gtus[0].Name != "GTU_01" {
+		t.Errorf("expected Name %q, got %q", "GTU_01", gtus[0].Name)
 	}
 }
 
@@ -46,7 +46,7 @@ func TestGtuService_Get(t *testing.T) {
 			t.Errorf("expected path /v3/gtus/3.json, got %s", r.URL.Path)
 		}
 		w.Header().Set("Content-Type", "application/json")
-		_ = json.NewEncoder(w).Encode(Gtu{ID: 3, Code: "GTU_03"})
+		_ = json.NewEncoder(w).Encode(Gtu{ID: 3, Name: "GTU_03"})
 	}))
 	defer ts.Close()
 
@@ -55,8 +55,8 @@ func TestGtuService_Get(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if g.Code != "GTU_03" {
-		t.Errorf("expected Code %q, got %q", "GTU_03", g.Code)
+	if g.Name != "GTU_03" {
+		t.Errorf("expected Name %q, got %q", "GTU_03", g.Name)
 	}
 }
 
@@ -67,7 +67,7 @@ func TestGtuService_ListSelected(t *testing.T) {
 		}
 		w.Header().Set("Content-Type", "application/json")
 		_ = json.NewEncoder(w).Encode(gtuListRoot{
-			Entities: []Gtu{{ID: 1, Code: "GTU_01"}},
+			Entities: []Gtu{{ID: 1, Name: "GTU_01"}},
 		})
 	}))
 	defer ts.Close()
