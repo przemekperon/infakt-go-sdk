@@ -20,7 +20,7 @@ linters-settings:
   misspell:
     locale: US
   goimports:
-    local-prefixes: github.com/przemekperon/golang-infakt
+    local-prefixes: github.com/przemekperon/infakt-go-sdk
 
 issues:
   exclude-use-default: false

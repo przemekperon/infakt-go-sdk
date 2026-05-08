@@ -1,8 +1,8 @@
-# golang-infakt
+# infakt-go-sdk
 
-[![CI](https://github.com/przemekperon/golang-infakt/actions/workflows/ci.yml/badge.svg)](https://github.com/przemekperon/golang-infakt/actions/workflows/ci.yml)
-[![Go Reference](https://pkg.go.dev/badge/github.com/przemekperon/golang-infakt.svg)](https://pkg.go.dev/github.com/przemekperon/golang-infakt)
-[![Go Report Card](https://goreportcard.com/badge/github.com/przemekperon/golang-infakt)](https://goreportcard.com/report/github.com/przemekperon/golang-infakt)
+[![CI](https://github.com/przemekperon/infakt-go-sdk/actions/workflows/ci.yml/badge.svg)](https://github.com/przemekperon/infakt-go-sdk/actions/workflows/ci.yml)
+[![Go Reference](https://pkg.go.dev/badge/github.com/przemekperon/infakt-go-sdk.svg)](https://pkg.go.dev/github.com/przemekperon/infakt-go-sdk)
+[![Go Report Card](https://goreportcard.com/badge/github.com/przemekperon/infakt-go-sdk)](https://goreportcard.com/report/github.com/przemekperon/infakt-go-sdk)
 
 Go client library for the [inFakt API v3](https://www.infakt.pl/) — a Polish invoicing and accounting service.
 
@@ -20,7 +20,7 @@ Go client library for the [inFakt API v3](https://www.infakt.pl/) — a Polish i
 ## Installation
 
 ```bash
-go get github.com/przemekperon/golang-infakt
+go get github.com/przemekperon/infakt-go-sdk
 ```
 
 ## Quick Start
@@ -33,7 +33,7 @@ import (
     "fmt"
     "log"
 
-    "github.com/przemekperon/golang-infakt"
+    "github.com/przemekperon/infakt-go-sdk"
 )
 
 func main() {

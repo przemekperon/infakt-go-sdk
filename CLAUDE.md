@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Go client library for the InFakt API v3 (Polish invoicing service). Flat package structure under `github.com/przemekperon/golang-infakt`.
+Go client library for the InFakt API v3 (Polish invoicing service). Flat package structure under `github.com/przemekperon/infakt-go-sdk`.
 
 ## Build & Run Commands
 
