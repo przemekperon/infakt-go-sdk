@@ -1,6 +1,8 @@
 # infakt-go-sdk
 
 [![CI](https://github.com/przemekperon/infakt-go-sdk/actions/workflows/ci.yml/badge.svg)](https://github.com/przemekperon/infakt-go-sdk/actions/workflows/ci.yml)
+[![govulncheck](https://github.com/przemekperon/infakt-go-sdk/actions/workflows/govulncheck.yml/badge.svg)](https://github.com/przemekperon/infakt-go-sdk/actions/workflows/govulncheck.yml)
+[![CodeQL](https://github.com/przemekperon/infakt-go-sdk/actions/workflows/codeql.yml/badge.svg)](https://github.com/przemekperon/infakt-go-sdk/actions/workflows/codeql.yml)
 [![Go Reference](https://pkg.go.dev/badge/github.com/przemekperon/infakt-go-sdk.svg)](https://pkg.go.dev/github.com/przemekperon/infakt-go-sdk)
 [![Go Report Card](https://goreportcard.com/badge/github.com/przemekperon/infakt-go-sdk)](https://goreportcard.com/report/github.com/przemekperon/infakt-go-sdk)
 
