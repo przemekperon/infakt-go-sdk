@@ -54,13 +54,13 @@ type ClientEntity struct {
 	// MailingPostalCode is the postal code on the correspondence address;
 	// used when [ClientEntity.SameForwardAddress] is false.
 	MailingPostalCode string `json:"mailing_postal_code,omitempty"`
-	// DaysToPayment is the default payment term, in days. The official
-	// docs at https://docs.infakt.pl ("Klienci") describe the field as
-	// an integer, but the live API returns it as a JSON string (e.g.
-	// "14") for both GET and POST/PUT round-trips. We therefore model it
-	// as a string here so List/Get responses round-trip without losing
-	// information; pass numeric strings (e.g. "14") on Create/Update.
-	DaysToPayment string `json:"days_to_payment,omitempty"`
+	// DaysToPayment is the default payment term, in days. The live API is
+	// inconsistent about this field: it returns an empty string ("") when
+	// the term is unset but a bare JSON number (e.g. 14) once a value is
+	// assigned. It is therefore modeled as a [FlexString] so both shapes
+	// decode cleanly; pass a numeric string (e.g. "14") on Create/Update,
+	// which the API accepts on input.
+	DaysToPayment FlexString `json:"days_to_payment,omitempty"`
 	// PaymentMethod is the default payment method (see [Invoice.PaymentMethod]).
 	PaymentMethod string `json:"payment_method,omitempty"`
 	// InvoiceNote is a default note appended to invoices issued to this

@@ -110,10 +110,6 @@ type ProductService struct {
 	client *Client
 }
 
-type productRoot struct {
-	Product Product `json:"product"`
-}
-
 type productWriteRoot struct {
 	Product *ProductRequest `json:"product"`
 }

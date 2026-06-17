@@ -5,6 +5,7 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 )
 
@@ -72,6 +73,66 @@ func TestErrorResponse_As(t *testing.T) {
 	}
 	if errResp.Message != "invoice not found" {
 		t.Errorf("expected message %q, got %q", "invoice not found", errResp.Message)
+	}
+}
+
+func TestErrorResponse_FieldErrors(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusUnprocessableEntity)
+		// Mirrors a real inFakt 422: a top-level message plus a per-field
+		// breakdown, with one field carrying a bare string instead of an array.
+		_, _ = w.Write([]byte(`{"error":"Nieprawidłowe parametry.","errors":{"bank_name":["Proszę podać nazwę banku."],"base":"Ogólny błąd"}}`))
+	}))
+	defer ts.Close()
+
+	c := newTestClient("key", WithBaseURL(ts.URL))
+	req, _ := c.newRequest(context.Background(), http.MethodPost, "/test", nil)
+	err := c.do(req, nil)
+
+	if !errors.Is(err, ErrUnprocessableEntity) {
+		t.Fatalf("expected ErrUnprocessableEntity, got %v", err)
+	}
+
+	var errResp *ErrorResponse
+	if !errors.As(err, &errResp) {
+		t.Fatal("expected error to be *ErrorResponse")
+	}
+	if got := errResp.Errors["bank_name"]; len(got) != 1 || got[0] != "Proszę podać nazwę banku." {
+		t.Errorf("bank_name errors = %v, want [\"Proszę podać nazwę banku.\"]", got)
+	}
+	if got := errResp.Errors["base"]; len(got) != 1 || got[0] != "Ogólny błąd" {
+		t.Errorf("base errors (bare string coercion) = %v, want [\"Ogólny błąd\"]", got)
+	}
+	// The field detail must be visible in the error string.
+	if !strings.Contains(err.Error(), "bank_name: Proszę podać nazwę banku.") {
+		t.Errorf("Error() = %q, want it to contain the field detail", err.Error())
+	}
+}
+
+func TestErrorResponse_FieldErrorsUnexpectedShape(t *testing.T) {
+	// If "errors" arrives as an array (not the documented object), the
+	// top-level message must still be extracted and Errors left nil.
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusUnprocessableEntity)
+		_, _ = w.Write([]byte(`{"error":"Coś poszło nie tak","errors":["luźny komunikat"]}`))
+	}))
+	defer ts.Close()
+
+	c := newTestClient("key", WithBaseURL(ts.URL))
+	req, _ := c.newRequest(context.Background(), http.MethodPost, "/test", nil)
+	err := c.do(req, nil)
+
+	var errResp *ErrorResponse
+	if !errors.As(err, &errResp) {
+		t.Fatal("expected error to be *ErrorResponse")
+	}
+	if errResp.Message != "Coś poszło nie tak" {
+		t.Errorf("message = %q, want %q (must survive unexpected errors shape)", errResp.Message, "Coś poszło nie tak")
+	}
+	if errResp.Errors != nil {
+		t.Errorf("Errors = %v, want nil for non-object shape", errResp.Errors)
 	}
 }
 

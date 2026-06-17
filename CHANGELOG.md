@@ -5,12 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.2.0] - 2026-06-17
 
 This release reconciles the SDK with the official inFakt API documentation
-(https://docs.infakt.pl) following an end-to-end audit. It contains breaking
-changes on the Invoice and Product write paths; consult the migration notes
-below before upgrading.
+(https://docs.infakt.pl) and verifies the entire public surface end-to-end
+against the official sandbox. It contains breaking changes on the Invoice and
+Product write paths; consult the migration notes below before upgrading.
 
 ### Breaking Changes
 
@@ -28,18 +28,21 @@ below before upgrading.
   `SendCopy`. The previous fixed `print_type=original` and `email_to`
   payload key did not match the documented contract (`recipient`).
 - `Invoices.GetPDF` signature changed: now takes `(uuid, documentType, locale)`
-  and returns `*PDFResponse` carrying a `DownloadLink` instead of raw PDF
-  bytes. The previous `/{id}.pdf` endpoint did not exist.
+  and addresses the documented `/{uuid}/pdf.json` endpoint, which responds with
+  the document directly (`Content-Type: application/pdf`). It returns the raw
+  PDF bytes (`[]byte`); the previous `/{id}.pdf` path did not exist. (Verified
+  against the sandbox: the endpoint returns the binary PDF, not a JSON envelope
+  with a download link.)
 - `Invoice.SplitPayment bool` removed; replaced by
   `Invoice.SplitPaymentType string` (`"required"` / `"optional"`) per the
   API schema.
 - `Invoice.VatExemptionReason` is now `int` (was `string`).
-- `ServiceEntry.Discount` is now `int` representing percent (was `string`).
-- `ClientEntity.DaysToPayment` and `ClientEntityRequest.DaysToPayment`
-  remain typed as `string` / `*string`. The official docs describe the
-  field as an integer, but the live API returns it as a JSON string
-  (verified against the production endpoint) and the SDK matches the
-  wire format to keep round-trips lossless.
+- `ClientEntity.DaysToPayment` is now typed as `FlexString` (was `string`).
+  The live API is inconsistent: it returns an empty string (`""`) when the
+  term is unset but a bare JSON number (e.g. `14`) once a value is assigned,
+  which a plain `string` field cannot decode. `FlexString` accepts both shapes
+  and marshals back as a JSON string, which the API accepts on input.
+  `ClientEntityRequest.DaysToPayment` stays `*string`.
 - `Products.Create` and `Products.Update` now accept `*ProductRequest`
   instead of `*Product`, enabling explicit zero-value writes via pointer
   helpers. `ProductRequest.Description` removed (the field is not part of
@@ -66,6 +69,11 @@ below before upgrading.
 - Sentinel errors expanded: `ErrBadRequest` (400), `ErrPaymentRequired`
   (402), `ErrUnprocessableEntity` (422), `ErrLocked` (423). 503 now maps
   to `ErrRateLimited` (matches docs which group it with 429).
+- `ErrorResponse.Errors` (`map[string][]string`) captures the per-field
+  validation messages returned on 422 responses (e.g.
+  `{"bank_account": ["..."]}`); the detail is also appended to
+  `ErrorResponse.Error()` so the cause is visible in logs. Previously only
+  the generic top-level message was surfaced.
 - `ListOptions` extended with `Order`, `Fields`, and `Filters` so all
   resource-list calls can express documented Ransack-style filters
   (`q[<predicate>]`), sort expressions (`order=name asc`), and field
@@ -84,6 +92,25 @@ below before upgrading.
 - `PDFDocumentTypeOriginal` / `PDFDocumentTypeDuplicate` /
   `PDFDocumentTypeCopy` constants for `Invoices.GetPDF` and
   `SendByEmailOptions.PrintType`.
+
+### Fixed
+
+- Verified the entire public surface end-to-end against the official sandbox
+  (`https://api.sandbox-infakt.pl`), exercising every service method including
+  the write paths. The fixes below address decode/encode mismatches found
+  during that run.
+- `Gtu` response mapping: the struct referenced a non-existent `code`
+  attribute and was missing `short_description`. The API returns the JPK_V7
+  marking in `name` (e.g. `"GTU_01"`) plus `short_description` and
+  `description`; the struct now matches (`Gtu.Code` removed, `Gtu.Name` and
+  `Gtu.ShortDescription` are authoritative).
+- `ClientEntity.DaysToPayment` decode failure: a populated client returns
+  `days_to_payment` as a JSON number, which the `string` field rejected with
+  "cannot unmarshal number into Go struct field". Fixed via the new
+  `FlexString` type (see Breaking Changes).
+- `Invoices.GetPDF` decode failure: the endpoint returns a binary PDF, which
+  the JSON-envelope decode rejected with "invalid character '%'". `GetPDF`
+  now returns the raw bytes (see Breaking Changes).
 
 ### Changed
 
@@ -159,6 +186,7 @@ below before upgrading.
 - Comprehensive package documentation and runnable examples
 - GitHub Actions CI with Go 1.22/1.23 matrix testing and golangci-lint
 
-[Unreleased]: https://github.com/przemekperon/infakt-go-sdk/compare/v0.1.1...HEAD
+[Unreleased]: https://github.com/przemekperon/infakt-go-sdk/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/przemekperon/infakt-go-sdk/releases/tag/v0.2.0
 [0.1.1]: https://github.com/przemekperon/infakt-go-sdk/releases/tag/v0.1.1
 [0.1.0]: https://github.com/przemekperon/infakt-go-sdk/releases/tag/v0.1.0

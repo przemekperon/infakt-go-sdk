@@ -67,8 +67,9 @@
 //
 // # Rate Limiting
 //
-// The client paces outgoing requests with an internal ticker (default: 100ms
-// between requests). Configure the interval with [WithRateLimit]; pass 0 to
+// The client paces outgoing requests with an internal ticker (default: 400ms
+// between requests, sized to stay under the documented IP-level limit of 150
+// writes/minute). Configure the interval with [WithRateLimit]; pass 0 to
 // disable pacing.
 //
 //	client := infakt.NewClient("key", infakt.WithRateLimit(200*time.Millisecond))

@@ -253,17 +253,6 @@ const (
 	PDFDocumentTypeCopy      = "copy"
 )
 
-// PDFResponse is the JSON envelope returned by the inFakt PDF endpoint.
-// The actual document is reachable via [PDFResponse.DownloadLink], a
-// short-lived signed URL the caller can hand off to a downloader.
-type PDFResponse struct {
-	// DownloadLink is the (typically time-limited) URL where the PDF can
-	// be retrieved.
-	DownloadLink string `json:"download_link"`
-	// Status is the document generation status (e.g. "ready").
-	Status string `json:"status,omitempty"`
-}
-
 // InvoiceService manages invoices on the inFakt API.
 //
 // Per-invoice operations identify the invoice by [Invoice.UUID] — pass the
@@ -474,18 +463,19 @@ func (s *InvoiceService) SendByEmail(ctx context.Context, uuid string, opts *Sen
 	return s.client.do(req, nil)
 }
 
-// GetPDF returns the PDF metadata envelope for an [Invoice]. The envelope
-// carries a (typically time-limited) [PDFResponse.DownloadLink] from
-// which the actual PDF can be fetched.
+// GetPDF returns the rendered invoice PDF as raw bytes. The inFakt endpoint
+// (GET /v3/invoices/{uuid}/pdf.json) responds with the document directly
+// (Content-Type: application/pdf), so the returned slice is the complete PDF,
+// ready to be written to disk or streamed to a client.
 //
-// documentType selects the variant ("original", "duplicate", "copy"); use
-// the [PDFDocumentTypeOriginal] / [PDFDocumentTypeDuplicate] /
-// [PDFDocumentTypeCopy] constants. locale ("pl", "en", ...) is optional;
-// pass an empty string to use the account default.
+// documentType selects the variant ("original", "duplicate", "copy"); use the
+// [PDFDocumentTypeOriginal] / [PDFDocumentTypeDuplicate] / [PDFDocumentTypeCopy]
+// constants (an empty string defaults to "original"). locale ("pl", "en", ...)
+// is optional; pass an empty string to use the account default.
 //
-// Returns [ErrNotFound] (wrapped in an [*ErrorResponse]) if no invoice
-// exists with that UUID.
-func (s *InvoiceService) GetPDF(ctx context.Context, uuid, documentType, locale string) (*PDFResponse, error) {
+// Returns [ErrNotFound] (wrapped in an [*ErrorResponse]) if no invoice exists
+// with that UUID.
+func (s *InvoiceService) GetPDF(ctx context.Context, uuid, documentType, locale string) ([]byte, error) {
 	path := fmt.Sprintf("/%s/invoices/%s/pdf.json", apiVersion, url.PathEscape(uuid))
 
 	if documentType == "" {
@@ -504,12 +494,7 @@ func (s *InvoiceService) GetPDF(ctx context.Context, uuid, documentType, locale 
 	}
 	req.URL.RawQuery = q.Encode()
 
-	var resp PDFResponse
-	if err := s.client.do(req, &resp); err != nil {
-		return nil, err
-	}
-
-	return &resp, nil
+	return s.client.doRaw(req)
 }
 
 // NextNumberResponse is the JSON envelope returned by the next-number

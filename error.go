@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"sort"
+	"strings"
 )
 
 // The following sentinel errors form the family of HTTP-status-derived
@@ -57,6 +59,12 @@ type ErrorResponse struct {
 	// synthesized description derived from the HTTP status text. The
 	// inFakt API returns the message in a JSON field named "error".
 	Message string `json:"error"`
+	// Errors holds the field-level validation messages the inFakt API
+	// returns on 422 (Unprocessable Entity) responses, keyed by the
+	// offending attribute name (e.g. "bank_account", "services"). It is
+	// nil when the response carried no per-field breakdown. See
+	// https://docs.infakt.pl (sekcja "Kody błędów").
+	Errors map[string][]string `json:"errors,omitempty"`
 	// Method is the HTTP method (GET, POST, ...) of the failing request.
 	Method string `json:"-"`
 	// Endpoint is the request path of the failing request, included in
@@ -64,13 +72,37 @@ type ErrorResponse struct {
 	Endpoint string `json:"-"`
 }
 
-// Error implements the error interface.
+// Error implements the error interface. When the response carried field-level
+// validation messages (see [ErrorResponse.Errors]) they are appended in a
+// stable order so the cause is visible in logs.
 func (e *ErrorResponse) Error() string {
+	var msg string
 	if e.Method != "" && e.Endpoint != "" {
-		return fmt.Sprintf("infakt: %s %s: API error (status %d): %s",
+		msg = fmt.Sprintf("infakt: %s %s: API error (status %d): %s",
 			e.Method, e.Endpoint, e.StatusCode, e.Message)
+	} else {
+		msg = fmt.Sprintf("infakt: API error (status %d): %s", e.StatusCode, e.Message)
 	}
-	return fmt.Sprintf("infakt: API error (status %d): %s", e.StatusCode, e.Message)
+	if len(e.Errors) > 0 {
+		msg += " (" + formatFieldErrors(e.Errors) + ")"
+	}
+	return msg
+}
+
+// formatFieldErrors renders per-field validation messages in a stable,
+// human-readable order: "field1: msg1; msg2, field2: msg".
+func formatFieldErrors(fields map[string][]string) string {
+	keys := make([]string, 0, len(fields))
+	for k := range fields {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+
+	parts := make([]string, 0, len(keys))
+	for _, k := range keys {
+		parts = append(parts, k+": "+strings.Join(fields[k], "; "))
+	}
+	return strings.Join(parts, ", ")
 }
 
 // Is reports whether this *ErrorResponse should be considered equivalent to
@@ -142,6 +174,16 @@ func checkResponse(r *http.Response) error {
 				errResp.Message = apiErr.Message
 			}
 		}
+
+		// Parse the per-field "errors" map separately so an unexpected shape
+		// (e.g. a bare array) cannot prevent the top-level message above from
+		// being extracted.
+		var fieldErrs struct {
+			Errors map[string]json.RawMessage `json:"errors"`
+		}
+		if json.Unmarshal(data, &fieldErrs) == nil {
+			errResp.Errors = coerceFieldErrors(fieldErrs.Errors)
+		}
 	}
 
 	if errResp.Message == "" {
@@ -149,4 +191,32 @@ func checkResponse(r *http.Response) error {
 	}
 
 	return errResp
+}
+
+// coerceFieldErrors normalizes the raw "errors" map from a 422 response into
+// map[string][]string. The inFakt API returns each field's messages as a JSON
+// array of strings (e.g. {"bank_account": ["..."]}), but the coercion also
+// tolerates a single bare string per field. Entries that match neither shape
+// are skipped. Returns nil when nothing usable remains so callers can treat a
+// nil map as "no per-field detail".
+func coerceFieldErrors(raw map[string]json.RawMessage) map[string][]string {
+	if len(raw) == 0 {
+		return nil
+	}
+	out := make(map[string][]string, len(raw))
+	for field, msg := range raw {
+		var arr []string
+		if json.Unmarshal(msg, &arr) == nil {
+			out[field] = arr
+			continue
+		}
+		var single string
+		if json.Unmarshal(msg, &single) == nil {
+			out[field] = []string{single}
+		}
+	}
+	if len(out) == 0 {
+		return nil
+	}
+	return out
 }

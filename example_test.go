@@ -294,8 +294,9 @@ func ExampleInvoiceService_SendByEmail() {
 }
 
 func ExampleInvoiceService_GetPDF() {
-	body := `{"download_link":"https://files.example/invoice-5.pdf","status":"ready"}`
-	client, srv := newMockClient(jsonHandler(body))
+	// The endpoint replies with the PDF document directly, so GetPDF returns
+	// the raw bytes (here a short stand-in for a real %PDF payload).
+	client, srv := newMockClient(jsonHandler("%PDF-1.4 invoice-5"))
 	defer srv.Close()
 	defer client.Close()
 
@@ -303,8 +304,8 @@ func ExampleInvoiceService_GetPDF() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	fmt.Println(pdf.DownloadLink)
-	// Output: https://files.example/invoice-5.pdf
+	fmt.Printf("%s (%d bytes)\n", pdf[:8], len(pdf))
+	// Output: %PDF-1.4 (18 bytes)
 }
 
 func ExampleInvoiceService_GetNextNumber() {

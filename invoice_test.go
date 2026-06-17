@@ -279,11 +279,8 @@ func TestInvoiceService_GetPDF(t *testing.T) {
 		if r.URL.Query().Get("locale") != "en" {
 			t.Errorf("expected locale=en, got %q", r.URL.Query().Get("locale"))
 		}
-		w.Header().Set("Content-Type", "application/json")
-		_ = json.NewEncoder(w).Encode(PDFResponse{
-			DownloadLink: "https://example.test/some/signed.pdf",
-			Status:       "ready",
-		})
+		w.Header().Set("Content-Type", "application/pdf")
+		_, _ = w.Write([]byte("%PDF-1.4\nfake-invoice-bytes\n%%EOF"))
 	}))
 	defer ts.Close()
 
@@ -293,11 +290,8 @@ func TestInvoiceService_GetPDF(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	if pdf.DownloadLink == "" {
-		t.Error("expected DownloadLink populated")
-	}
-	if pdf.Status != "ready" {
-		t.Errorf("expected status=ready, got %q", pdf.Status)
+	if len(pdf) < 4 || string(pdf[:4]) != "%PDF" {
+		t.Errorf("expected raw PDF bytes starting with %%PDF, got %q", pdf)
 	}
 }
 
@@ -306,8 +300,8 @@ func TestInvoiceService_GetPDF_DefaultsDocumentType(t *testing.T) {
 		if r.URL.Query().Get("document_type") != "original" {
 			t.Errorf("expected default document_type=original, got %q", r.URL.Query().Get("document_type"))
 		}
-		w.Header().Set("Content-Type", "application/json")
-		_ = json.NewEncoder(w).Encode(PDFResponse{DownloadLink: "https://example.test/x.pdf"})
+		w.Header().Set("Content-Type", "application/pdf")
+		_, _ = w.Write([]byte("%PDF-1.4\n%%EOF"))
 	}))
 	defer ts.Close()
 

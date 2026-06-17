@@ -12,10 +12,13 @@ import (
 // canonical catalog.
 type Gtu struct {
 	ID int64 `json:"id,omitempty"`
-	// Code is the JPK_V7 marking, e.g. "GTU_01", "GTU_07".
-	Code string `json:"code,omitempty"`
-	// Name is the human-readable label.
+	// Name is the JPK_V7 marking code, e.g. "GTU_01", "GTU_07". The inFakt
+	// API returns the code in the "name" field — there is no separate
+	// "code" attribute on the wire.
 	Name string `json:"name,omitempty"`
+	// ShortDescription is the human-readable label, e.g. "Dostawa napojów
+	// alkoholowych".
+	ShortDescription string `json:"short_description,omitempty"`
 	// Description is the long-form description.
 	Description string `json:"description,omitempty"`
 }
