@@ -44,8 +44,12 @@ func TestNewClientWithOptions(t *testing.T) {
 	if c.baseURL.String() != "https://custom.example.com" {
 		t.Errorf("expected baseURL %q, got %q", "https://custom.example.com", c.baseURL.String())
 	}
-	if c.httpClient != customHTTP {
-		t.Error("expected custom HTTP client")
+	if c.httpClient == customHTTP || c.httpClient.Transport != customHTTP.Transport ||
+		c.httpClient.Timeout != customHTTP.Timeout || c.httpClient.Jar != customHTTP.Jar {
+		t.Error("expected a copy preserving custom HTTP client configuration")
+	}
+	if customHTTP.CheckRedirect != nil {
+		t.Error("original HTTP client was modified")
 	}
 	if c.userAgent != "custom-agent" {
 		t.Errorf("expected userAgent %q, got %q", "custom-agent", c.userAgent)
