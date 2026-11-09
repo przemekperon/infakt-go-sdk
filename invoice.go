@@ -14,10 +14,12 @@ import (
 // for example 12345 represents 123.45 PLN. Date fields are formatted as
 // YYYY-MM-DD strings.
 //
-// Per-invoice operations on this resource (Get, Update, Delete, MarkAsPaid,
-// SendByEmail, GetPDF) address the invoice by [Invoice.UUID] — the integer
-// [Invoice.ID] is informational and is not accepted by the API in URL paths.
+// Get, Update, SendByEmail, MarkAsPaid, and GetPDF accept either a UUID
+// or a numeric ID encoded as a string.
 type Invoice struct {
+	LocalGovernmentRecipientAddress *LocalGovernmentAddress `json:"local_government_recipient_address,omitempty"`
+	LocalGovernmentSellerAddress    *LocalGovernmentAddress `json:"local_government_seller_address,omitempty"`
+
 	ID       int64  `json:"id,omitempty"`
 	UUID     string `json:"uuid,omitempty"`
 	ParentID *int64 `json:"parent_id,omitempty"`
@@ -93,7 +95,7 @@ type Invoice struct {
 	BDOCode string `json:"bdo_code,omitempty"`
 	// DocumentMarkingsIDs references markings (oznaczenia dokumentów) by
 	// ID, used for JPK_V7 reporting.
-	DocumentMarkingsIDs []int64 `json:"document_markings_ids,omitempty"`
+	DocumentMarkingsIDs []string `json:"document_markings_ids,omitempty"`
 	// ReceiptNumber is the cash-register receipt number associated with
 	// this invoice.
 	ReceiptNumber string `json:"receipt_number,omitempty"`
@@ -119,8 +121,8 @@ type ServiceEntry struct {
 	// TaxSymbol is the VAT rate symbol applied to the line
 	// (e.g., "23", "8", "5", "0", "zw", "np"). See [VatRate.Symbol].
 	TaxSymbol string `json:"tax_symbol,omitempty"`
-	// FlatRateTaxSymbol is the VAT rate symbol used when the seller is on
-	// the Polish flat-rate tax scheme (ryczałt).
+	// FlatRateTaxSymbol is the income-tax flat-rate symbol (ryczałt),
+	// separate from the VAT rate in TaxSymbol.
 	FlatRateTaxSymbol string `json:"flat_rate_tax_symbol,omitempty"`
 	// Unit is the unit of measure for the line (e.g., "hour", "piece",
 	// "kg"). It is a free-form string as defined by inFakt.
@@ -158,12 +160,16 @@ type ServiceEntry struct {
 	Discount string `json:"discount,omitempty"`
 }
 
-// Extensions represents additional invoice settings.
+// Extensions represents additional invoice response data.
 type Extensions struct {
+	Payments *PaymentExtension `json:"payments,omitempty"`
+	Shares   *ShareExtension   `json:"shares,omitempty"`
+	// Deprecated: payment_online is not part of the current documented response.
 	PaymentOnline *PaymentOnline `json:"payment_online,omitempty"`
 }
 
-// PaymentOnline represents online payment configuration.
+// PaymentOnline represents legacy online payment configuration.
+// Deprecated: current invoice request schemas do not document payment_online.
 type PaymentOnline struct {
 	Enabled bool `json:"enabled,omitempty"`
 }
@@ -186,45 +192,89 @@ type KsefData struct {
 // the helpers [String], [Int], [Int64], [Bool], and [Float64] from
 // helpers.go to build values.
 type InvoiceRequest struct {
-	Currency             *string               `json:"currency,omitempty"`
-	Notes                *string               `json:"notes,omitempty"`
-	Kind                 *string               `json:"kind,omitempty"`
-	PaymentMethod        *string               `json:"payment_method,omitempty"`
-	RecipientSignature   *string               `json:"recipient_signature,omitempty"`
-	SellerSignature      *string               `json:"seller_signature,omitempty"`
-	InvoiceDate          *string               `json:"invoice_date,omitempty"`
-	SaleDate             *string               `json:"sale_date,omitempty"`
-	PaymentDate          *string               `json:"payment_date,omitempty"`
-	ClientID             *int64                `json:"client_id,omitempty"`
-	BankAccount          *string               `json:"bank_account,omitempty"`
-	SaleType             *string               `json:"sale_type,omitempty"`
-	InvoiceDateKind      *string               `json:"invoice_date_kind,omitempty"`
-	SplitPaymentType     *string               `json:"split_payment_type,omitempty"`
-	VatExemptionReason   *int                  `json:"vat_exemption_reason,omitempty"`
-	BDOCode              *string               `json:"bdo_code,omitempty"`
-	ReceiptNumber        *string               `json:"receipt_number,omitempty"`
-	CheckDuplicateNumber *bool                 `json:"check_duplicate_number,omitempty"`
-	Services             []ServiceEntryRequest `json:"services,omitempty"`
+	Number                          *string                        `json:"number,omitempty"`
+	CheckDuplicateNumber            *bool                          `json:"check_duplicate_number,omitempty"`
+	Kind                            *string                        `json:"kind,omitempty"`
+	Currency                        *string                        `json:"currency,omitempty"`
+	PaidPrice                       *int                           `json:"paid_price,omitempty"`
+	LeftToPay                       *int                           `json:"left_to_pay,omitempty"`
+	Notes                           *string                        `json:"notes,omitempty"`
+	PaymentMethod                   *string                        `json:"payment_method,omitempty"`
+	SplitPayment                    *bool                          `json:"split_payment,omitempty"`
+	SplitPaymentType                *string                        `json:"split_payment_type,omitempty"`
+	RecipientSignature              *string                        `json:"recipient_signature,omitempty"`
+	SellerSignature                 *string                        `json:"seller_signature,omitempty"`
+	InvoiceDate                     *string                        `json:"invoice_date,omitempty"`
+	SaleDate                        *string                        `json:"sale_date,omitempty"`
+	VatDateValue                    *string                        `json:"vat_date_value,omitempty"`
+	ContinuousServiceStartOn        *string                        `json:"continuous_service_start_on,omitempty"`
+	ContinuousServiceEndOn          *string                        `json:"continuous_service_end_on,omitempty"`
+	OccasionalSale                  *bool                          `json:"occasional_sale,omitempty"`
+	PaymentDate                     *string                        `json:"payment_date,omitempty"`
+	PaidDate                        *string                        `json:"paid_date,omitempty"`
+	ClientID                        *int64                         `json:"client_id,omitempty"`
+	ClientCompanyName               *string                        `json:"client_company_name,omitempty"`
+	ClientFirstName                 *string                        `json:"client_first_name,omitempty"`
+	ClientLastName                  *string                        `json:"client_last_name,omitempty"`
+	ClientBusinessActivityKind      *string                        `json:"client_business_activity_kind,omitempty"`
+	ClientStreet                    *string                        `json:"client_street,omitempty"`
+	ClientStreetNumber              *string                        `json:"client_street_number,omitempty"`
+	ClientFlatNumber                *string                        `json:"client_flat_number,omitempty"`
+	ClientCity                      *string                        `json:"client_city,omitempty"`
+	ClientPostCode                  *string                        `json:"client_post_code,omitempty"`
+	ClientTaxCode                   *string                        `json:"client_tax_code,omitempty"`
+	ClientCountry                   *string                        `json:"client_country,omitempty"`
+	BankAccount                     *string                        `json:"bank_account,omitempty"`
+	BankName                        *string                        `json:"bank_name,omitempty"`
+	Swift                           *string                        `json:"swift,omitempty"`
+	VatExemptionReason              *int                           `json:"vat_exemption_reason,omitempty"`
+	SaleType                        *string                        `json:"sale_type,omitempty"`
+	InvoiceDateKind                 *string                        `json:"invoice_date_kind,omitempty"`
+	DocumentMarkingsIDs             *[]string                      `json:"document_markings_ids,omitempty"`
+	TransactionKindID               *int64                         `json:"transaction_kind_id,omitempty"`
+	BDOCode                         *string                        `json:"bdo_code,omitempty"`
+	ReceiptNumber                   *string                        `json:"receipt_number,omitempty"`
+	NotIncome                       *bool                          `json:"not_income,omitempty"`
+	VatExchangeDateKind             *string                        `json:"vat_exchange_date_kind,omitempty"`
+	SalesKind                       *string                        `json:"sales_kind,omitempty"`
+	KsefNumber                      *string                        `json:"ksef_number,omitempty"`
+	TransactionTerms                *TransactionTermsRequest       `json:"transaction_terms,omitempty"`
+	LocalGovernmentRecipientAddress *LocalGovernmentAddressRequest `json:"local_government_recipient_address,omitempty"`
+	LocalGovernmentSellerAddress    *LocalGovernmentAddressRequest `json:"local_government_seller_address,omitempty"`
+	ThirdPartyAddresses             *[]ThirdPartyAddressRequest    `json:"third_party_addresses,omitempty"`
+	ScheduledDates                  *[]string                      `json:"scheduled_dates,omitempty"`
+	AllowCorrection                 *bool                          `json:"allow_correction,omitempty"`
+	// Services replaces the complete list. Nil omits the list; an empty non-nil
+	// slice sends []. Business acceptance of an empty list is not guaranteed.
+	Services *[]ServiceEntryRequest `json:"services,omitempty"`
+	// RemoveLocalGovernmentRecipientAddress explicitly consents to the API's
+	// destructive omission semantics. Required on UpdateWithRequest when no address is supplied.
+	RemoveLocalGovernmentRecipientAddress bool `json:"-"`
 }
 
-// ServiceEntryRequest is the partial-update payload for invoice line items.
-// Pointer fields let callers distinguish unset from zero-value: for
-// example, [ServiceEntryRequest.Quantity] of nil means "do not change",
-// while [Float64](0) means "set to zero". Use the helpers [String], [Int],
-// [Int64], [Bool], and [Float64] from helpers.go to build values.
+// ServiceEntryRequest describes one complete target line item. Sending Services
+// replaces every existing item; it does not patch individual items. Name and
+// TaxSymbol are required by the API. Nil fields use API defaults, not old values.
 type ServiceEntryRequest struct {
-	Name              *string  `json:"name,omitempty"`
-	TaxSymbol         *string  `json:"tax_symbol,omitempty"`
-	FlatRateTaxSymbol *string  `json:"flat_rate_tax_symbol,omitempty"`
-	Unit              *string  `json:"unit,omitempty"`
-	Quantity          *float64 `json:"quantity,omitempty"`
-	UnitNetPrice      *int     `json:"unit_net_price,omitempty"`
-	PKWiU             *string  `json:"pkwiu,omitempty"`
-	CN                *string  `json:"cn,omitempty"`
-	PKOB              *string  `json:"pkob,omitempty"`
-	GtuID             *int64   `json:"gtu_id,omitempty"`
-	VatDateValue      *string  `json:"vat_date_value,omitempty"`
-	Discount          *string  `json:"discount,omitempty"`
+	Name                       *string  `json:"name,omitempty"`
+	TaxSymbol                  *string  `json:"tax_symbol,omitempty"`
+	Unit                       *string  `json:"unit,omitempty"`
+	Quantity                   *float64 `json:"quantity,omitempty"`
+	UnitNetPrice               *int     `json:"unit_net_price,omitempty"`
+	NetPrice                   *int     `json:"net_price,omitempty"`
+	GrossPrice                 *int     `json:"gross_price,omitempty"`
+	TaxPrice                   *int     `json:"tax_price,omitempty"`
+	Symbol                     *string  `json:"symbol,omitempty"`
+	PKWiU                      *string  `json:"pkwiu,omitempty"`
+	CN                         *string  `json:"cn,omitempty"`
+	PKOB                       *string  `json:"pkob,omitempty"`
+	GTIN                       *string  `json:"gtin,omitempty"`
+	FlatRateTaxSymbol          *string  `json:"flat_rate_tax_symbol,omitempty"`
+	Discount                   *float64 `json:"discount,omitempty"`
+	UnitNetPriceBeforeDiscount *int     `json:"unit_net_price_before_discount,omitempty"`
+	GtuID                      *int64   `json:"gtu_id,omitempty"`
+	RelatedID                  *int64   `json:"related_id,omitempty"`
+	UserCalculated             *bool    `json:"user_calculated,omitempty"`
 }
 
 // InvoiceListOptions specifies the optional parameters to the
@@ -255,9 +305,8 @@ const (
 
 // InvoiceService manages invoices on the inFakt API.
 //
-// Per-invoice operations identify the invoice by [Invoice.UUID] — pass the
-// UUID returned in [Invoice.UUID] from List/Create/Get to subsequent
-// methods.
+// Get, Update, SendByEmail, MarkAsPaid, and GetPDF accept a UUID or a numeric
+// ID encoded as a string. Endpoint paths are specific to each action.
 //
 // Supported endpoints:
 //   - List, Get, Create, Update, Delete
@@ -308,7 +357,7 @@ func (s *InvoiceService) List(ctx context.Context, opts *InvoiceListOptions) ([]
 	return root.Entities, &root.MetaInfo, nil
 }
 
-// Get returns a single [Invoice] by UUID. Returns [ErrNotFound] (wrapped in
+// Get returns a single [Invoice] by UUID or numeric ID encoded as a string. Returns [ErrNotFound] (wrapped in
 // an [*ErrorResponse]) if no invoice exists with that UUID.
 func (s *InvoiceService) Get(ctx context.Context, uuid string) (*Invoice, error) {
 	path := fmt.Sprintf("/%s/invoices/%s.json", apiVersion, url.PathEscape(uuid))
@@ -329,7 +378,15 @@ func (s *InvoiceService) Get(ctx context.Context, uuid string) (*Invoice, error)
 
 // Create creates a new [Invoice] from the supplied prototype and returns
 // the server-assigned record (with ID, UUID, number, and computed totals).
+// Deprecated: use CreateWithRequest to send explicit zero values.
 func (s *InvoiceService) Create(ctx context.Context, invoice *Invoice) (*Invoice, error) {
+	if invoice == nil {
+		return nil, fmt.Errorf("infakt: invoice must not be nil")
+	}
+	if invoice.LocalGovernmentRecipientAddress != nil || invoice.LocalGovernmentSellerAddress != nil {
+		return nil, fmt.Errorf("infakt: use CreateWithRequest for JST addresses; response and request address fields differ")
+	}
+
 	path := fmt.Sprintf("/%s/invoices.json", apiVersion)
 
 	root := &invoiceRoot{Invoice: *invoice}
@@ -347,24 +404,12 @@ func (s *InvoiceService) Create(ctx context.Context, invoice *Invoice) (*Invoice
 	return &created, nil
 }
 
-// Update updates an existing [Invoice] addressed by UUID. Returns
-// [ErrNotFound] (wrapped in an [*ErrorResponse]) if no invoice exists.
+// Update is retained for source compatibility and always returns a local
+// migration error, because response models cannot express safe update intent.
+//
+// Deprecated: use UpdateWithRequest for explicit fields and address-removal intent.
 func (s *InvoiceService) Update(ctx context.Context, uuid string, invoice *Invoice) (*Invoice, error) {
-	path := fmt.Sprintf("/%s/invoices/%s.json", apiVersion, url.PathEscape(uuid))
-
-	root := &invoiceRoot{Invoice: *invoice}
-	req, err := s.client.newRequest(ctx, http.MethodPut, path, root)
-	if err != nil {
-		return nil, err
-	}
-
-	var updated Invoice
-	err = s.client.do(req, &updated)
-	if err != nil {
-		return nil, err
-	}
-
-	return &updated, nil
+	return nil, fmt.Errorf("infakt: legacy Update cannot express JST recipient-address intent; migrate to UpdateWithRequest and explicitly supply LocalGovernmentRecipientAddress or set RemoveLocalGovernmentRecipientAddress")
 }
 
 // Delete deletes an [Invoice] addressed by UUID. Returns [ErrNotFound]
@@ -551,4 +596,116 @@ func addInvoiceFilters(path string, opts *InvoiceListOptions) string {
 	}
 	u.RawQuery = q.Encode()
 	return u.String()
+}
+
+// LocalGovernmentAddressRequest is a JST recipient or seller address payload. Required fields
+// are always serialized, including their zero values. CountryID defaults to Poland.
+type LocalGovernmentAddressRequest struct {
+	CompanyName    string `json:"company_name"`
+	Street         string `json:"street"`
+	BuildingNumber string `json:"building_number"`
+	City           string `json:"city"`
+	TaxID          string `json:"tax_id,omitempty"`
+	DoorNumber     string `json:"door_number,omitempty"`
+	PostCode       string `json:"post_code,omitempty"`
+	CountryID      *int64 `json:"country_id,omitempty"`
+}
+
+// TransactionTermsRequest describes contracts and orders associated with an invoice.
+type TransactionTermsRequest struct {
+	Contracts *[]TransactionReferenceRequest `json:"contracts,omitempty"`
+	Orders    *[]TransactionReferenceRequest `json:"orders,omitempty"`
+}
+
+// TransactionReferenceRequest identifies a contract or order and its date.
+type TransactionReferenceRequest struct {
+	Number string `json:"number"`
+	Date   string `json:"date"`
+}
+
+// ThirdPartyAddressRequest describes an invoice third-party address.
+type ThirdPartyAddressRequest struct {
+	ID                 *int64  `json:"id,omitempty"`
+	Destroy            *bool   `json:"_destroy,omitempty"`
+	CompanyName        *string `json:"company_name,omitempty"`
+	TaxID              *string `json:"tax_id,omitempty"`
+	Street             *string `json:"street,omitempty"`
+	BuildingNumber     *string `json:"building_number,omitempty"`
+	DoorNumber         *string `json:"door_number,omitempty"`
+	PostCode           *string `json:"post_code,omitempty"`
+	City               *string `json:"city,omitempty"`
+	CountryCode        *string `json:"country_code,omitempty"`
+	CountryID          *int64  `json:"country_id,omitempty"`
+	RoleCode           *string `json:"role_code,omitempty"`
+	InternalIdentifier *string `json:"internal_identifier,omitempty"`
+}
+
+// PaymentExtension contains the availability and link of an online payment.
+type PaymentExtension struct {
+	Link      *string `json:"link,omitempty"`
+	Available bool    `json:"available"`
+}
+
+// ShareExtension contains a public sharing link and its validity limit.
+type ShareExtension struct {
+	Link       *string `json:"link,omitempty"`
+	Available  bool    `json:"available"`
+	ValidUntil *string `json:"valid_until,omitempty"`
+}
+
+// CreateWithRequest creates an invoice using explicit optional fields.
+func (s *InvoiceService) CreateWithRequest(ctx context.Context, payload *InvoiceRequest) (*Invoice, error) {
+	if payload == nil {
+		return nil, fmt.Errorf("infakt: request must not be nil")
+	}
+	return s.writeRequest(ctx, http.MethodPost, fmt.Sprintf("/%s/invoices.json", apiVersion), payload)
+}
+
+// UpdateWithRequest updates an invoice by UUID or numeric ID encoded as a string.
+// Supply the complete current/new JST recipient address or explicitly consent to
+// its removal by setting RemoveLocalGovernmentRecipientAddress. No implicit GET
+// or merge occurs; callers must coordinate concurrent edits themselves.
+func (s *InvoiceService) UpdateWithRequest(ctx context.Context, id string, payload *InvoiceRequest) (*Invoice, error) {
+	if payload == nil {
+		return nil, fmt.Errorf("infakt: request must not be nil")
+	}
+	if payload.LocalGovernmentRecipientAddress == nil && !payload.RemoveLocalGovernmentRecipientAddress {
+		return nil, fmt.Errorf("infakt: explicitly supply LocalGovernmentRecipientAddress or set RemoveLocalGovernmentRecipientAddress")
+	}
+	if payload.LocalGovernmentRecipientAddress != nil && payload.RemoveLocalGovernmentRecipientAddress {
+		return nil, fmt.Errorf("infakt: recipient address and removal intent are mutually exclusive")
+	}
+	return s.writeRequest(ctx, http.MethodPut, fmt.Sprintf("/%s/invoices/%s.json", apiVersion, url.PathEscape(id)), payload)
+}
+
+func (s *InvoiceService) writeRequest(ctx context.Context, method, path string, payload *InvoiceRequest) (*Invoice, error) {
+	if payload.Services != nil && *payload.Services == nil {
+		return nil, fmt.Errorf("infakt: services must be an array, not null; omit it or supply a non-nil slice")
+	}
+	root := struct {
+		Invoice *InvoiceRequest `json:"invoice"`
+	}{payload}
+	req, err := s.client.newRequest(ctx, method, path, root)
+	if err != nil {
+		return nil, err
+	}
+	var result Invoice
+	if err := s.client.do(req, &result); err != nil {
+		return nil, err
+	}
+	return &result, nil
+}
+
+// LocalGovernmentAddress is a JST address returned by the API. Response field
+// names differ from LocalGovernmentAddressRequest. For an update, copy the
+// address into a request and resolve CountryID using the API country catalog.
+type LocalGovernmentAddress struct {
+	CompanyName  *string `json:"company_name,omitempty"`
+	NIP          *string `json:"nip,omitempty"`
+	Street       *string `json:"street,omitempty"`
+	StreetNumber *string `json:"street_number,omitempty"`
+	FlatNumber   *string `json:"flat_number,omitempty"`
+	PostalCode   *string `json:"postal_code,omitempty"`
+	City         *string `json:"city,omitempty"`
+	Country      *string `json:"country,omitempty"`
 }
