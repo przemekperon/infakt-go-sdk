@@ -5,6 +5,217 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased] — next minor release (0.3.0)
+
+### Breaking changes and migration
+
+- `Invoice.DocumentMarkingsIDs` is now `[]string`, preserving nonnumeric values
+  and leading zeros. Replace numeric slice initializers with string slices.
+- Invoice updates require an explicit decision about the local government (JST)
+  recipient address. Legacy `Invoices.Update` calls return a local migration
+  error rather than attempting an unsafe conversion of response addresses. Use `UpdateWithRequest` and
+  the address decision described in the README migration guide.
+- `InvoiceRequest.Services` distinguishes an omitted list from an explicit
+  replacement. A supplied list replaces all existing lines; it does not patch
+  individual line items.
+- `ClientEntityRequest.DaysToPayment` changes from `*string` to `*int`
+  (`String("14")` → `Int(14)`). `ServiceEntryRequest.Discount` changes from
+  `*string` to `*float64` (`String("5")` → `Float64(5)`). Its undocumented
+  `VatDateValue` field is removed; use invoice-level `InvoiceRequest.VatDateValue`.
+- Legacy invoice Create rejects response-shaped JST addresses; use the explicit
+  request address DTO. No country-code conversion is guessed.
+- Response extensions expose documented payment and share links separately
+  from write payloads. See the README for the final public types.
+- HTTP 429 and 5xx retries apply only to GET/HEAD, excluding PDF rendering
+  which can change document status. Writes are never retried
+  automatically: a failed write can have an unknown remote outcome.
+- Redirects must stay on the same origin, with no HTTPS downgrade. A supplied
+  `http.Client` is copied, retaining its configuration and stricter redirect
+  callback without mutating the caller's client.
+
+### Added
+
+- Typed `CreateWithRequest` / `UpdateWithRequest` methods for invoices, clients,
+  and bank accounts. Pointer fields allow explicit empty strings, zero and
+  false values. Existing model-based methods are deprecated.
+- Regression coverage for duplicate writes, redirect credential protection,
+  request body replay, cancellation during pacing/backoff, JST updates,
+  response decoding and explicit zero-value writes. Tests use local servers
+  or controlled transports only.
+
+### Fixed
+
+- Replayable bodies are recreated for every permitted retry. Nonreplayable
+  bodies stop retrying and preserve the original API failure.
+- Rate limiting observes cancellation for JSON and PDF, including when pacing
+  is disabled, and applies to every HTTP attempt.
+- Invoice response decoding preserves string document markings and payment /
+  share extensions. VAT and flat-rate income-tax comments now use distinct
+  terminology.
+- Get/Update documentation accepts either numeric invoice IDs (as strings) or
+  UUIDs, without changing action or PDF endpoints. Historical entries below
+  describe earlier releases and are retained unchanged.
+- Requirements now match the existing Go 1.24 module directive and CI matrix.
+
+## [0.2.0] - 2026-06-17
+
+This release reconciles the SDK with the official inFakt API documentation
+(https://docs.infakt.pl) and verifies the entire public surface end-to-end
+against the official sandbox. It contains breaking changes on the Invoice and
+Product write paths; consult the migration notes below before upgrading.
+
+### Breaking Changes
+
+- `Invoice` per-resource operations now identify invoices by **UUID
+  (string)** instead of the integer `Invoice.ID`. Affected methods:
+  `Invoices.Get`, `Invoices.Update`, `Invoices.Delete`, `Invoices.MarkAsPaid`,
+  `Invoices.SendByEmail`, `Invoices.GetPDF`. The API endpoints documented at
+  https://docs.infakt.pl are addressed by `{invoice_uuid}` and the previous
+  integer paths returned 404 in production.
+- `Invoices.MarkAsPaid` now targets `/async/invoices/{uuid}/paid.json` (the
+  documented async endpoint) and accepts an additional `allowCorrection bool`
+  argument required when paying corrective invoices.
+- `Invoices.SendByEmail` signature changed: the second argument is now
+  `*SendByEmailOptions` exposing `PrintType`, `Locale`, `Recipient`, and
+  `SendCopy`. The previous fixed `print_type=original` and `email_to`
+  payload key did not match the documented contract (`recipient`).
+- `Invoices.GetPDF` signature changed: now takes `(uuid, documentType, locale)`
+  and addresses the documented `/{uuid}/pdf.json` endpoint, which responds with
+  the document directly (`Content-Type: application/pdf`). It returns the raw
+  PDF bytes (`[]byte`); the previous `/{id}.pdf` path did not exist. (Verified
+  against the sandbox: the endpoint returns the binary PDF, not a JSON envelope
+  with a download link.)
+- `Invoice.SplitPayment bool` removed; replaced by
+  `Invoice.SplitPaymentType string` (`"required"` / `"optional"`) per the
+  API schema.
+- `Invoice.VatExemptionReason` is now `int` (was `string`).
+- `ClientEntity.DaysToPayment` is now typed as `FlexString` (was `string`).
+  The live API is inconsistent: it returns an empty string (`""`) when the
+  term is unset but a bare JSON number (e.g. `14`) once a value is assigned,
+  which a plain `string` field cannot decode. `FlexString` accepts both shapes
+  and marshals back as a JSON string, which the API accepts on input.
+  `ClientEntityRequest.DaysToPayment` stays `*string`.
+- `Products.Create` and `Products.Update` now accept `*ProductRequest`
+  instead of `*Product`, enabling explicit zero-value writes via pointer
+  helpers. `ProductRequest.Description` removed (the field is not part of
+  the documented schema).
+- `Product.UUID` removed (not part of the documented Product schema).
+
+### Added
+
+- **CostInvoices** read-only access to cost invoices (faktury kosztowe)
+  via `Client.CostInvoices`, backed by `GET /v3/documents/costs.json` and
+  `GET /v3/documents/costs/{uuid}.json` per
+  https://github.com/infakt/API/blob/master/readme.md#koszty. Supports
+  paginated listing with `q[issue_date_gteq]` / `q[issue_date_lteq]` /
+  `q[seller_tax_code_eq]` / `q[currency_eq]` filters and per-document
+  fetch by UUID. Requires the `api:costs:read` scope on the API key.
+- **BankAccounts** full CRUD: `Get`, `Create`, `Update`, `Delete` (the API
+  exposes `POST/GET/{id}/PUT/DELETE` and the previous "read-only" annotation
+  was incorrect). Mutating endpoints require the
+  `api:sensitive:bank_accounts:write` scope on the API key.
+- **GTU** reference catalog (`Client.Gtus`) backed by `/gtus.json`,
+  `/gtus/{id}.json`, `/gtus/selected.json` for JPK_V7 commodity markings.
+- `WithSandbox()` client option pointing at
+  `https://api.sandbox-infakt.pl`.
+- Sentinel errors expanded: `ErrBadRequest` (400), `ErrPaymentRequired`
+  (402), `ErrUnprocessableEntity` (422), `ErrLocked` (423). 503 now maps
+  to `ErrRateLimited` (matches docs which group it with 429).
+- `ErrorResponse.Errors` (`map[string][]string`) captures the per-field
+  validation messages returned on 422 responses (e.g.
+  `{"bank_account": ["..."]}`); the detail is also appended to
+  `ErrorResponse.Error()` so the cause is visible in logs. Previously only
+  the generic top-level message was surfaced.
+- `ListOptions` extended with `Order`, `Fields`, and `Filters` so all
+  resource-list calls can express documented Ransack-style filters
+  (`q[<predicate>]`), sort expressions (`order=name asc`), and field
+  selection (`fields=name,services(name,tax_symbol)`).
+- `Limit` is now clamped to the documented maximum of 100 records per page
+  (constant `MaxPageLimit`).
+- New Invoice fields: `ContinuousServiceStartOn`, `ContinuousServiceEndOn`,
+  `BDOCode`, `DocumentMarkingsIDs`, `ReceiptNumber`,
+  `CheckDuplicateNumber`, `KsefData`.
+- New ServiceEntry fields: `CN`, `PKOB`, `GtuID`, `FlatRateTaxSymbol`,
+  `VatDateValue`.
+- New Product fields: `CN`, `PKOB`, `GtuID`, `PurchaseUnitNetPrice`,
+  `PurchaseUnitGrossPrice`. `ProductRequest` extended with all editable
+  fields (CN, PKOB, GtuID, FlatRateTaxSymbol, Discount, purchase prices).
+- `ProductListOptions.NameEq` for `q[name_eq]` filter.
+- `PDFDocumentTypeOriginal` / `PDFDocumentTypeDuplicate` /
+  `PDFDocumentTypeCopy` constants for `Invoices.GetPDF` and
+  `SendByEmailOptions.PrintType`.
+
+### Fixed
+
+- Verified the entire public surface end-to-end against the official sandbox
+  (`https://api.sandbox-infakt.pl`), exercising every service method including
+  the write paths. The fixes below address decode/encode mismatches found
+  during that run.
+- `Gtu` response mapping: the struct referenced a non-existent `code`
+  attribute and was missing `short_description`. The API returns the JPK_V7
+  marking in `name` (e.g. `"GTU_01"`) plus `short_description` and
+  `description`; the struct now matches (`Gtu.Code` removed, `Gtu.Name` and
+  `Gtu.ShortDescription` are authoritative).
+- `ClientEntity.DaysToPayment` decode failure: a populated client returns
+  `days_to_payment` as a JSON number, which the `string` field rejected with
+  "cannot unmarshal number into Go struct field". Fixed via the new
+  `FlexString` type (see Breaking Changes).
+- `Invoices.GetPDF` decode failure: the endpoint returns a binary PDF, which
+  the JSON-envelope decode rejected with "invalid character '%'". `GetPDF`
+  now returns the raw bytes (see Breaking Changes).
+
+### Changed
+
+- Default rate limit raised from 100 ms to **400 ms** to honour the
+  documented IP-level limit of 150 writes/minute (https://docs.infakt.pl,
+  sekcja "Limity"). The previous 100 ms (600 req/min) reliably tripped 429
+  on write-heavy workloads.
+- `ErrorResponse` now extracts `message` from the JSON `error` key (the
+  format documented and used by the live API). The legacy `message` key
+  is still parsed as a fallback.
+- Service-level godoc on `BankAccountService` updated to reflect full CRUD
+  surface; "read-only" wording removed.
+
+### CI
+
+- Bumped GitHub Actions: `actions/checkout` v4→v6,
+  `actions/upload-artifact` v4→v7, `github/codeql-action` v3→v4 (#6).
+- Fixed `errcheck` lint findings by handling `Fprint`/`Fprintf` return
+  values in test mocks.
+- Ignored per-developer Claude Code local settings.
+
+## [0.1.1] - 2026-05-08
+
+### Added
+
+- `CONTRIBUTING.md` with local development, testing, and PR workflow.
+- `SECURITY.md` with responsible-disclosure policy and API-key handling guidance.
+- `examples/` directory with four runnable programs: `quickstart`, `pagination`, `pdf-export`, `error-handling`, plus index `examples/README.md`.
+- 22 new runnable Examples in `example_test.go` (29 total, all with `// Output:` and verified by `go test`), backed by an `httptest`-based mock helper.
+- Field-level godoc on `Invoice`, `ServiceEntry`, `ClientEntity`, `Product`, `BankAccount`, `VatRate`, and `ErrorResponse` (semantic explanations: ISO 4217 currency, grosze monetary fields, `YYYY-MM-DD` date format, IBAN, Polish NIP/PKWiU/MPP, etc.).
+- Service-level godoc on every `*Service` with supported endpoints and links to https://docs.infakt.pl.
+- Godoc on previously undocumented `InvoiceRequest` and `ServiceEntryRequest` types.
+- Field-level comments on `Client.Invoices`, `Client.Clients`, `Client.Products`, `Client.BankAccounts`, `Client.VatRates`.
+- Multi-OS CI matrix (Linux / macOS / Windows × Go 1.22 / 1.23) with `bash` shell pinned on Windows for portability.
+- `govulncheck` workflow scanning every push and pull request for known Go vulnerabilities.
+- CodeQL static-analysis workflow on a weekly schedule plus per-PR runs.
+- Dependabot configuration tracking Go modules and GitHub Actions updates.
+
+### Changed
+
+- Renamed Go module from `github.com/przemekperon/golang-infakt` to
+  `github.com/przemekperon/infakt-go-sdk` to match the published name on
+  pkg.go.dev.
+- `doc.go` expanded with new sections: `Stability and Versioning`, `Context and Cancellation`, `Retries`, `Documentation and References` (link to https://docs.infakt.pl).
+- `README.md` extended with `Requirements`, `Documentation`, `Versioning`, `Context Support`, `Testing`, `Contributing`, and `Security` sections; configuration and error-handling sections slimmed to point at `pkg.go.dev` for the full reference.
+- Adopted Go 1.19+ doc-link syntax (`[Name]`) across the package for cross-references between types, methods, sentinel errors, and stdlib symbols.
+- Documented concurrency guarantees on `Client` and clarified `NewClient` defaults.
+- Lowered minimum `go` directive in `go.mod` for broader downstream compatibility; pinned latest Go patch version in CI matrix.
+
+### Notes
+
+- No public API changes; this release is documentation, infrastructure, and packaging.
+
 ## [0.1.0] - 2026-01-11
 
 ### Added
@@ -27,4 +238,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Comprehensive package documentation and runnable examples
 - GitHub Actions CI with Go 1.22/1.23 matrix testing and golangci-lint
 
+[Unreleased]: https://github.com/przemekperon/infakt-go-sdk/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/przemekperon/infakt-go-sdk/releases/tag/v0.2.0
+[0.1.1]: https://github.com/przemekperon/infakt-go-sdk/releases/tag/v0.1.1
 [0.1.0]: https://github.com/przemekperon/infakt-go-sdk/releases/tag/v0.1.0

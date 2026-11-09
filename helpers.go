@@ -2,6 +2,16 @@ package infakt
 
 import "time"
 
+// The helpers in this file create pointer values for primitive types. They
+// are intended for use with *Request types whose fields are pointers in
+// order to distinguish "unset" (nil) from the type's zero value. For
+// example, in [InvoiceRequest] or [ClientEntityRequest] the field
+// `Notes *string` is nil when the caller does not wish to send the field
+// at all, but `infakt.String("")` sends an explicit empty string and
+// `infakt.Int(0)` sends an explicit zero. Without these helpers callers
+// would need to introduce intermediate variables solely to take their
+// addresses.
+
 // String returns a pointer to the given string value.
 func String(v string) *string { return &v }
 

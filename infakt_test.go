@@ -44,11 +44,22 @@ func TestNewClientWithOptions(t *testing.T) {
 	if c.baseURL.String() != "https://custom.example.com" {
 		t.Errorf("expected baseURL %q, got %q", "https://custom.example.com", c.baseURL.String())
 	}
-	if c.httpClient != customHTTP {
-		t.Error("expected custom HTTP client")
+	if c.httpClient == customHTTP || c.httpClient.Transport != customHTTP.Transport ||
+		c.httpClient.Timeout != customHTTP.Timeout || c.httpClient.Jar != customHTTP.Jar {
+		t.Error("expected a copy preserving custom HTTP client configuration")
+	}
+	if customHTTP.CheckRedirect != nil {
+		t.Error("original HTTP client was modified")
 	}
 	if c.userAgent != "custom-agent" {
 		t.Errorf("expected userAgent %q, got %q", "custom-agent", c.userAgent)
+	}
+}
+
+func TestWithSandbox(t *testing.T) {
+	c := NewClient("key", WithSandbox())
+	if c.baseURL.String() != sandboxBaseURL {
+		t.Errorf("expected baseURL %q, got %q", sandboxBaseURL, c.baseURL.String())
 	}
 }
 
@@ -200,7 +211,7 @@ func TestDo_RetryOnServerError(t *testing.T) {
 func TestErrorResponse_IncludesContext(t *testing.T) {
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusNotFound)
-		_, _ = w.Write([]byte(`{"message":"not found"}`))
+		_, _ = w.Write([]byte(`{"error":"not found"}`))
 	}))
 	defer ts.Close()
 
