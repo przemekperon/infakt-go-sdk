@@ -214,15 +214,15 @@ func ExampleInvoiceService_Get() {
 	// Output: 7 FV/7/2026 sent 9999
 }
 
-func ExampleInvoiceService_Create() {
+func ExampleInvoiceService_CreateWithRequest() {
 	body := `{"id":101,"number":"FV/101/2026","status":"draft","gross_price":5000}`
 	client, srv := newMockClient(jsonHandler(body))
 	defer srv.Close()
 	defer client.Close()
 
-	created, err := client.Invoices.Create(context.Background(), &infakt.Invoice{
-		ClientID: 42,
-		Currency: "PLN",
+	created, err := client.Invoices.CreateWithRequest(context.Background(), &infakt.InvoiceRequest{
+		ClientID: infakt.Int64(42),
+		Currency: infakt.String("PLN"),
 	})
 	if err != nil {
 		log.Fatal(err)
@@ -231,14 +231,15 @@ func ExampleInvoiceService_Create() {
 	// Output: created 101 FV/101/2026
 }
 
-func ExampleInvoiceService_Update() {
+func ExampleInvoiceService_UpdateWithRequest() {
 	body := `{"id":5,"uuid":"u-5","number":"FV/5/2026","notes":"updated note"}`
 	client, srv := newMockClient(jsonHandler(body))
 	defer srv.Close()
 	defer client.Close()
 
-	updated, err := client.Invoices.Update(context.Background(), "u-5", &infakt.Invoice{
-		Notes: "updated note",
+	updated, err := client.Invoices.UpdateWithRequest(context.Background(), "u-5", &infakt.InvoiceRequest{
+		Notes:                                 infakt.String("updated note"),
+		RemoveLocalGovernmentRecipientAddress: true,
 	})
 	if err != nil {
 		log.Fatal(err)

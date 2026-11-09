@@ -99,7 +99,7 @@ type ClientEntityRequest struct {
 	MailingStreet        *string `json:"mailing_street,omitempty"`
 	MailingCity          *string `json:"mailing_city,omitempty"`
 	MailingPostalCode    *string `json:"mailing_postal_code,omitempty"`
-	DaysToPayment        *string `json:"days_to_payment,omitempty"`
+	DaysToPayment        *int    `json:"days_to_payment,omitempty"`
 	PaymentMethod        *string `json:"payment_method,omitempty"`
 	InvoiceNote          *string `json:"invoice_note,omitempty"`
 	SameForwardAddress   *bool   `json:"same_forward_address,omitempty"`
@@ -195,7 +195,11 @@ func (s *ClientEntityService) Get(ctx context.Context, id int64) (*ClientEntity,
 
 // Create creates a new [ClientEntity] from the supplied prototype and
 // returns the server-assigned record (with ID and UUID populated).
+// Deprecated: use CreateWithRequest to send explicit zero values.
 func (s *ClientEntityService) Create(ctx context.Context, entity *ClientEntity) (*ClientEntity, error) {
+	if entity == nil {
+		return nil, fmt.Errorf("infakt: entity must not be nil")
+	}
 	path := fmt.Sprintf("/%s/clients.json", apiVersion)
 
 	root := &clientEntityRoot{ClientEntity: *entity}
@@ -215,7 +219,11 @@ func (s *ClientEntityService) Create(ctx context.Context, entity *ClientEntity) 
 
 // Update updates an existing [ClientEntity]. Returns [ErrNotFound]
 // (wrapped in an [*ErrorResponse]) if no client exists with that ID.
+// Deprecated: use UpdateWithRequest to send explicit zero values.
 func (s *ClientEntityService) Update(ctx context.Context, id int64, entity *ClientEntity) (*ClientEntity, error) {
+	if entity == nil {
+		return nil, fmt.Errorf("infakt: entity must not be nil")
+	}
 	path := fmt.Sprintf("/%s/clients/%d.json", apiVersion, id)
 
 	root := &clientEntityRoot{ClientEntity: *entity}
@@ -261,4 +269,46 @@ func addClientEntityFilters(path string, opts *ClientEntityListOptions) string {
 	}
 	u.RawQuery = q.Encode()
 	return u.String()
+}
+
+// CreateWithRequest creates a ClientEntity using explicit optional fields.
+// Nil omits a field; a pointer to a zero value sends that value.
+func (s *ClientEntityService) CreateWithRequest(ctx context.Context, payload *ClientEntityRequest) (*ClientEntity, error) {
+	if payload == nil {
+		return nil, fmt.Errorf("infakt: request must not be nil")
+	}
+	path := fmt.Sprintf("/%s/clients.json", apiVersion)
+	root := struct {
+		Value *ClientEntityRequest `json:"client"`
+	}{payload}
+	req, err := s.client.newRequest(ctx, http.MethodPost, path, root)
+	if err != nil {
+		return nil, err
+	}
+	var result ClientEntity
+	if err := s.client.do(req, &result); err != nil {
+		return nil, err
+	}
+	return &result, nil
+}
+
+// UpdateWithRequest updates a ClientEntity using explicit optional fields.
+// Nil omits a field; a pointer to a zero value sends that value.
+func (s *ClientEntityService) UpdateWithRequest(ctx context.Context, id int64, payload *ClientEntityRequest) (*ClientEntity, error) {
+	if payload == nil {
+		return nil, fmt.Errorf("infakt: request must not be nil")
+	}
+	path := fmt.Sprintf("/%s/clients/%d.json", apiVersion, id)
+	root := struct {
+		Value *ClientEntityRequest `json:"client"`
+	}{payload}
+	req, err := s.client.newRequest(ctx, http.MethodPut, path, root)
+	if err != nil {
+		return nil, err
+	}
+	var result ClientEntity
+	if err := s.client.do(req, &result); err != nil {
+		return nil, err
+	}
+	return &result, nil
 }

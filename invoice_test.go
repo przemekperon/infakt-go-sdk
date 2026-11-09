@@ -149,8 +149,9 @@ func TestInvoiceService_Update(t *testing.T) {
 	defer ts.Close()
 
 	c := newTestClient("key", WithBaseURL(ts.URL))
-	invoice, err := c.Invoices.Update(context.Background(), testInvoiceUUID, &Invoice{
-		Notes: "Updated notes",
+	invoice, err := c.Invoices.UpdateWithRequest(context.Background(), testInvoiceUUID, &InvoiceRequest{
+		Notes:                                 String("Updated notes"),
+		RemoveLocalGovernmentRecipientAddress: true,
 	})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)

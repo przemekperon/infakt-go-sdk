@@ -74,7 +74,7 @@ func main() {
 		InvoiceDate:   infakt.String(today),
 		SaleDate:      infakt.String(today),
 		ClientID:      infakt.Int64(123456),
-		Services: []infakt.ServiceEntryRequest{
+		Services: &[]infakt.ServiceEntryRequest{
 			{
 				Name:         infakt.String("Consulting"),
 				TaxSymbol:    infakt.String("23"),
@@ -85,6 +85,6 @@ func main() {
 		},
 	}
 	fmt.Printf("would create vat invoice for client %d with %d service line(s) on %s\n",
-		*sample.ClientID, len(sample.Services), *sample.InvoiceDate)
-	fmt.Println("(skipped client.Invoices.Create to avoid side effects in a demo)")
+		*sample.ClientID, len(*sample.Services), *sample.InvoiceDate)
+	fmt.Println("(skipped client.Invoices.CreateWithRequest to avoid side effects in a demo)")
 }
