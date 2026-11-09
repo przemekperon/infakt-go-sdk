@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -111,7 +112,9 @@ func WithSandbox() Option {
 // outbound requests, and returns an [Option] for [NewClient]. Use this to
 // inject custom transports (e.g. for tracing or proxying) or to override the
 // default 30-second timeout. Combine with [WithBaseURL] when you need both
-// transport-level and URL-level customization.
+// transport-level and URL-level customization. NewClient copies its configuration
+// without mutating the supplied client. Redirects must stay on the same origin;
+// the supplied CheckRedirect may impose further restrictions.
 func WithHTTPClient(httpClient *http.Client) Option {
 	return func(c *Client) {
 		c.httpClient = httpClient
@@ -180,6 +183,39 @@ func NewClient(apiKey string, opts ...Option) *Client {
 		opt(c)
 	}
 
+	// Copy configuration: callers may share and already be using this client.
+	if c.httpClient == nil {
+		c.httpClient = &http.Client{Timeout: defaultHTTPTimeout}
+	}
+	httpClient := *c.httpClient
+	userCheckRedirect := httpClient.CheckRedirect
+	// SDK requests start at baseURL. Keep its origin outside the mutable
+	// request history passed to user callbacks throughout a redirect chain.
+	origin := *c.baseURL
+	httpClient.CheckRedirect = func(req *http.Request, via []*http.Request) error {
+		if len(via) == 0 || req.URL == nil || !sameOrigin(&origin, req.URL) {
+			return errors.New("infakt: redirect to a different origin is not allowed")
+		}
+		if len(via) >= 10 {
+			return errors.New("infakt: stopped after 10 redirects")
+		}
+		if userCheckRedirect != nil {
+			// Callbacks may modify req or via; enforce the immutable boundary
+			// again before allowing a network request.
+			if err := userCheckRedirect(req, via); err != nil {
+				return err
+			}
+			if req.URL == nil || !sameOrigin(&origin, req.URL) {
+				return errors.New("infakt: redirect to a different origin is not allowed")
+			}
+			if len(via) >= 10 {
+				return errors.New("infakt: stopped after 10 redirects")
+			}
+		}
+		return nil
+	}
+	c.httpClient = &httpClient
+
 	c.Invoices = &InvoiceService{client: c}
 	c.Clients = &ClientEntityService{client: c}
 	c.Products = &ProductService{client: c}
@@ -238,14 +274,11 @@ func (c *Client) newRequest(ctx context.Context, method, path string, body inter
 }
 
 // do sends an API request and decodes the JSON response into v.
-// It applies rate limiting, handles HTTP 429 (Too Many Requests) responses
-// by waiting for the duration specified in the Retry-After header, and retries
-// on server errors (5xx) with exponential backoff (max 3 attempts).
+// It applies rate limiting to each attempt. Only GET and HEAD are retried on
+// HTTP 429 or 5xx, for at most three total attempts (excluding invoice PDF
+// rendering, which has side effects). A failed write may have
+// taken effect; reconcile its outcome before manually repeating it.
 func (c *Client) do(req *http.Request, v interface{}) error {
-	if c.rateLimiter != nil {
-		<-c.rateLimiter.C
-	}
-
 	resp, err := c.executeWithRetry(req)
 	if err != nil {
 		return err
@@ -274,10 +307,6 @@ func (c *Client) do(req *http.Request, v interface{}) error {
 // doRaw sends an API request and returns the raw response body bytes.
 // Used for non-JSON responses like PDF downloads.
 func (c *Client) doRaw(req *http.Request) ([]byte, error) {
-	if c.rateLimiter != nil {
-		<-c.rateLimiter.C
-	}
-
 	resp, err := c.executeWithRetry(req)
 	if err != nil {
 		return nil, err
@@ -297,63 +326,113 @@ func (c *Client) doRaw(req *http.Request) ([]byte, error) {
 	return data, nil
 }
 
-// executeWithRetry performs the HTTP request with retry logic for 429 and 5xx.
-func (c *Client) executeWithRetry(req *http.Request) (*http.Response, error) {
-	resp, err := c.httpClient.Do(req)
-	if err != nil {
-		return nil, fmt.Errorf("infakt: %s %s: request failed: %w",
-			req.Method, req.URL.Path, err)
+// sameOrigin compares schemes, hostnames and effective ports. In particular,
+// HTTPS-to-HTTP redirects and redirects to another port are rejected.
+func sameOrigin(a, b *url.URL) bool {
+	return strings.EqualFold(a.Scheme, b.Scheme) &&
+		strings.EqualFold(a.Hostname(), b.Hostname()) && effectivePort(a) == effectivePort(b)
+}
+
+func effectivePort(u *url.URL) string {
+	if port := u.Port(); port != "" {
+		return port
 	}
+	switch strings.ToLower(u.Scheme) {
+	case "https":
+		return "443"
+	case "http":
+		return "80"
+	default:
+		return ""
+	}
+}
 
-	// Handle rate limiting (HTTP 429) — single retry
-	if resp.StatusCode == http.StatusTooManyRequests {
-		wait := parseRetryAfter(resp.Header.Get("Retry-After"))
-		if wait > maxRetryAfterWait {
-			wait = maxRetryAfterWait
-		}
-
+// waitForRateLimit is shared by JSON, raw responses, and retries. Close must
+// only be called once requests have finished, as documented on Client.
+func (c *Client) waitForRateLimit(ctx context.Context) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	if c.rateLimiter != nil {
 		select {
-		case <-time.After(wait):
-		case <-req.Context().Done():
-			_ = resp.Body.Close()
-			return nil, req.Context().Err()
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-c.rateLimiter.C:
 		}
+	}
+	return ctx.Err()
+}
 
-		_ = resp.Body.Close()
-		resp, err = c.httpClient.Do(req)
+// retryAllowed deliberately excludes every write, including on HTTP 429:
+// neither 429 nor 5xx provides a confirmed guarantee of non-execution.
+func retryAllowed(req *http.Request, status int) bool {
+	if req.Method != http.MethodGet && req.Method != http.MethodHead {
+		return false
+	}
+	// Rendering an invoice PDF can mark it printed and consume a print limit.
+	if strings.HasPrefix(req.URL.Path, "/"+apiVersion+"/invoices/") && strings.HasSuffix(req.URL.Path, "/pdf.json") {
+		return false
+	}
+	return status == http.StatusTooManyRequests || (status >= 500 && status <= 599)
+}
+
+// executeWithRetry gives each allowed retry a fresh request and body. Without
+// GetBody a consumed body cannot be replayed, so the original response is
+// returned for normal API error handling instead of retrying it.
+func (c *Client) executeWithRetry(req *http.Request) (*http.Response, error) {
+	wait := initialRetryWait
+	rateRetried := false
+	for attempt := 0; ; attempt++ {
+		if err := c.waitForRateLimit(req.Context()); err != nil {
+			return nil, err
+		}
+		attemptReq := req.Clone(req.Context())
+		if attempt > 0 && req.Body != nil && req.Body != http.NoBody {
+			body, err := req.GetBody()
+			if err != nil {
+				return nil, fmt.Errorf("infakt: failed to replay request body: %w", err)
+			}
+			attemptReq.Body = body
+		}
+		// Recreating a body may run caller code and take time. Cancellation
+		// during GetBody must prevent dispatch, even with a custom transport.
+		if err := req.Context().Err(); err != nil {
+			if attemptReq.Body != nil {
+				_ = attemptReq.Body.Close()
+			}
+			return nil, err
+		}
+		resp, err := c.httpClient.Do(attemptReq)
 		if err != nil {
-			return nil, fmt.Errorf("infakt: %s %s: retry request failed: %w",
+			return nil, fmt.Errorf("infakt: %s %s: request failed: %w",
 				req.Method, req.URL.Path, err)
 		}
-	}
-
-	// Retry on server errors (5xx) with exponential backoff
-	if resp.StatusCode >= 500 {
-		wait := initialRetryWait
-		for attempt := 1; attempt < maxServerRetries; attempt++ {
-			select {
-			case <-time.After(wait):
-			case <-req.Context().Done():
-				_ = resp.Body.Close()
-				return nil, req.Context().Err()
+		if !retryAllowed(req, resp.StatusCode) || attempt+1 == maxServerRetries ||
+			(req.Body != nil && req.Body != http.NoBody && req.GetBody == nil) {
+			return resp, nil
+		}
+		delay := wait
+		if resp.StatusCode == http.StatusTooManyRequests {
+			if rateRetried {
+				return resp, nil
 			}
-
-			_ = resp.Body.Close()
-			resp, err = c.httpClient.Do(req)
-			if err != nil {
-				return nil, fmt.Errorf("infakt: %s %s: retry request failed (attempt %d): %w",
-					req.Method, req.URL.Path, attempt+1, err)
+			rateRetried = true
+			delay = parseRetryAfter(resp.Header.Get("Retry-After"))
+			if delay > maxRetryAfterWait {
+				delay = maxRetryAfterWait
 			}
-
-			if resp.StatusCode < 500 {
-				break
-			}
-
+		} else {
 			wait *= 2
 		}
+		_ = resp.Body.Close()
+		timer := time.NewTimer(delay)
+		select {
+		case <-req.Context().Done():
+			timer.Stop()
+			return nil, req.Context().Err()
+		case <-timer.C:
+		}
 	}
-
-	return resp, nil
 }
 
 // parseRetryAfter parses the Retry-After header value into a duration.
@@ -363,6 +442,12 @@ func parseRetryAfter(val string) time.Duration {
 	}
 
 	if seconds, err := strconv.Atoi(val); err == nil {
+		if seconds <= 0 {
+			return 0
+		}
+		if seconds > int(maxRetryAfterWait/time.Second) {
+			return maxRetryAfterWait
+		}
 		return time.Duration(seconds) * time.Second
 	}
 

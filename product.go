@@ -35,8 +35,8 @@ type Product struct {
 	// TaxSymbol is the VAT rate symbol applied to this product.
 	// See [ServiceEntry.TaxSymbol].
 	TaxSymbol string `json:"tax_symbol,omitempty"`
-	// FlatRateTaxSymbol is the VAT rate symbol used when the seller is on
-	// the Polish flat-rate tax scheme (ryczałt).
+	// FlatRateTaxSymbol is the income-tax flat-rate symbol (ryczałt),
+	// separate from the VAT rate in TaxSymbol.
 	FlatRateTaxSymbol string `json:"flat_rate_tax_symbol,omitempty"`
 	// UnitNetPrice is the per-unit net price, in grosze (1/100 PLN).
 	UnitNetPrice int `json:"unit_net_price,omitempty"`

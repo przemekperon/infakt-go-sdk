@@ -3,7 +3,7 @@
 //
 //  1. Sentinel errors (e.g. infakt.ErrNotFound) detected with errors.Is.
 //  2. Typed *infakt.ErrorResponse values for structured introspection.
-//  3. Standard context errors propagated from cancelled requests.
+//  3. Standard context errors propagated from canceled requests.
 //
 // Run with:
 //
@@ -39,7 +39,7 @@ func main() {
 	demoCancellation(client)
 }
 
-// demoNotFound triggers a 404 and recognises it via errors.Is.
+// demoNotFound triggers a 404 and recognizes it via errors.Is.
 func demoNotFound(client *infakt.Client) {
 	fmt.Println("== Demo 1: sentinel ErrNotFound ==")
 
@@ -92,7 +92,7 @@ func demoCancellation(client *infakt.Client) {
 	_, _, err := client.Invoices.List(ctx, nil)
 	switch {
 	case err == nil:
-		fmt.Println("unexpected: request succeeded against a cancelled context.")
+		fmt.Println("unexpected: request succeeded against a canceled context.")
 	case errors.Is(err, context.Canceled):
 		fmt.Println("request returned context.Canceled, as expected.")
 	default:

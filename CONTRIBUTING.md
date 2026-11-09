@@ -4,7 +4,7 @@ Thanks for your interest in improving `infakt-go-sdk`. This document covers the 
 
 ## Prerequisites
 
-- Go 1.19+ (the package documentation uses `# Heading` godoc syntax introduced in Go 1.19; CI exercises a wider matrix)
+- Go 1.24+ (the minimum declared in `go.mod`; CI also exercises Go 1.25)
 - `golangci-lint` for static analysis (configuration lives in [.golangci.yml](.golangci.yml))
 - `gofmt` (ships with the Go toolchain)
 
