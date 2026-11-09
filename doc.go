@@ -21,9 +21,10 @@
 //	invoices, meta, err := client.Invoices.List(ctx, nil)
 //
 //	// Create a client entity
-//	entity, err := client.Clients.Create(ctx, &infakt.ClientEntity{
-//	    CompanyName: "ACME Sp. z o.o.",
-//	    NIP:         "1234567890",
+//	entity, err := client.Clients.CreateWithRequest(ctx, &infakt.ClientEntityRequest{
+//	    CompanyName: infakt.String("ACME Sp. z o.o."),
+//	    NIP:         infakt.String("1234567890"),
+//	    City:        infakt.String("Warszawa"),
 //	})
 //
 //	// Get a product
@@ -53,7 +54,7 @@
 // The package exposes sentinel errors for common HTTP status codes; use
 // [errors.Is] to test for them:
 //
-//	_, err := client.Invoices.Get(ctx, 999)
+//	_, err := client.Invoices.Get(ctx, "999")
 //	if errors.Is(err, infakt.ErrNotFound) {
 //	    // handle 404
 //	}
@@ -79,7 +80,9 @@
 //
 // # Retries
 //
-// Retry behavior is built in and is not user-configurable:
+// Retry behavior applies only to GET and HEAD and is not user-configurable.
+// PDF downloads are excluded because rendering can change document status and
+// consume a print limit:
 //
 //   - HTTP 429 (Too Many Requests): the client retries the request once,
 //     honoring the Retry-After response header. The wait is capped at 60s.
@@ -89,7 +92,15 @@
 //
 // In both cases, a canceled or expired [context.Context] aborts pending waits
 // and returns the context error to the caller. Network/transport errors are
-// not retried.
+// not retried. Writes (including invoice creation and email actions) are never
+// retried automatically. A write error can leave its outcome unknown: reconcile
+// the remote state before considering a manual retry.
+//
+// # Redirects
+//
+// Redirects are restricted to the same origin (scheme, hostname, effective port).
+// HTTPS downgrades are rejected. WithHTTPClient copies the supplied client and
+// enforces these restrictions before calling its CheckRedirect callback.
 //
 // # Context and Cancellation
 //

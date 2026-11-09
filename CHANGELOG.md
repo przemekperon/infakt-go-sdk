@@ -5,6 +5,58 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased] — next minor release (0.3.0)
+
+### Breaking changes and migration
+
+- `Invoice.DocumentMarkingsIDs` is now `[]string`, preserving nonnumeric values
+  and leading zeros. Replace numeric slice initializers with string slices.
+- Invoice updates require an explicit decision about the local government (JST)
+  recipient address. Legacy `Invoices.Update` calls return a local migration
+  error rather than attempting an unsafe conversion of response addresses. Use `UpdateWithRequest` and
+  the address decision described in the README migration guide.
+- `InvoiceRequest.Services` distinguishes an omitted list from an explicit
+  replacement. A supplied list replaces all existing lines; it does not patch
+  individual line items.
+- `ClientEntityRequest.DaysToPayment` changes from `*string` to `*int`
+  (`String("14")` → `Int(14)`). `ServiceEntryRequest.Discount` changes from
+  `*string` to `*float64` (`String("5")` → `Float64(5)`). Its undocumented
+  `VatDateValue` field is removed; use invoice-level `InvoiceRequest.VatDateValue`.
+- Legacy invoice Create rejects response-shaped JST addresses; use the explicit
+  request address DTO. No country-code conversion is guessed.
+- Response extensions expose documented payment and share links separately
+  from write payloads. See the README for the final public types.
+- HTTP 429 and 5xx retries apply only to GET/HEAD, excluding PDF rendering
+  which can change document status. Writes are never retried
+  automatically: a failed write can have an unknown remote outcome.
+- Redirects must stay on the same origin, with no HTTPS downgrade. A supplied
+  `http.Client` is copied, retaining its configuration and stricter redirect
+  callback without mutating the caller's client.
+
+### Added
+
+- Typed `CreateWithRequest` / `UpdateWithRequest` methods for invoices, clients,
+  and bank accounts. Pointer fields allow explicit empty strings, zero and
+  false values. Existing model-based methods are deprecated.
+- Regression coverage for duplicate writes, redirect credential protection,
+  request body replay, cancellation during pacing/backoff, JST updates,
+  response decoding and explicit zero-value writes. Tests use local servers
+  or controlled transports only.
+
+### Fixed
+
+- Replayable bodies are recreated for every permitted retry. Nonreplayable
+  bodies stop retrying and preserve the original API failure.
+- Rate limiting observes cancellation for JSON and PDF, including when pacing
+  is disabled, and applies to every HTTP attempt.
+- Invoice response decoding preserves string document markings and payment /
+  share extensions. VAT and flat-rate income-tax comments now use distinct
+  terminology.
+- Get/Update documentation accepts either numeric invoice IDs (as strings) or
+  UUIDs, without changing action or PDF endpoints. Historical entries below
+  describe earlier releases and are retained unchanged.
+- Requirements now match the existing Go 1.24 module directive and CI matrix.
+
 ## [0.2.0] - 2026-06-17
 
 This release reconciles the SDK with the official inFakt API documentation
